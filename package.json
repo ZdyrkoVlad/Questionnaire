@@ -1,0 +1,37 @@
+{
+  "name": "questionnaire-nestjs",
+  "version": "1.0.0",
+  "description": "NestJS Questionnaire application with Tailwind CSS and 1-10 rating score system",
+  "author": "",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/client/input.css -o ./public/css/style.css --minify",
+    "watch:css": "tailwindcss -i ./src/client/input.css -o ./public/css/style.css --watch",
+    "build": "npm run build:css && nest build",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "start": "nest start",
+    "start:dev": "concurrently \"npm run watch:css\" \"nest start --watch\"",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.4.15",
+    "@nestjs/core": "^10.4.15",
+    "@nestjs/platform-express": "^10.4.15",
+    "@nestjs/serve-static": "^4.0.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.4.9",
+    "@nestjs/schematics": "^10.2.3",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.7",
+    "concurrently": "^9.1.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
+  }
+}

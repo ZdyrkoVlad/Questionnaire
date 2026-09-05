@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-lime-primary: #84cc16;
+    --color-lime-hover: #65a30d;
+    --color-lime-subtle: #f7fee7;
+  }
+
+  body {
+    @apply bg-[#fbfcfd] text-slate-900 antialiased selection:bg-lime-200 selection:text-slate-900 min-h-screen font-sans;
+  }
+
+  /* Custom focus outline */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-lime-500 ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  /* Rating button 1 to 10 */
+  .score-btn {
+    @apply relative flex flex-col items-center justify-center h-12 w-full sm:w-12 rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 transition-all duration-150 ease-out hover:border-slate-400 hover:bg-slate-50 active:scale-95 cursor-pointer;
+  }
+
+  .score-btn.active {
+    @apply bg-lime-400 border-lime-500 text-slate-950 font-bold shadow-md shadow-lime-400/30 scale-105;
+  }
+
+  /* Card surface */
+  .clean-card {
+    @apply bg-white border border-slate-200/80 rounded-2xl shadow-sm transition-all;
+  }
+}
