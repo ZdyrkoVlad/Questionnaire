@@ -8,10 +8,12 @@
   "scripts": {
     "build:css": "tailwindcss -i ./src/client/input.css -o ./public/css/style.css --minify",
     "watch:css": "tailwindcss -i ./src/client/input.css -o ./public/css/style.css --watch",
-    "build": "npm run build:css && nest build",
+    "build:client": "esbuild src/client/main.ts --bundle --outfile=public/js/app.js --minify --sourcemap --tsconfig=tsconfig.client.json",
+    "watch:client": "esbuild src/client/main.ts --bundle --outfile=public/js/app.js --watch --sourcemap --tsconfig=tsconfig.client.json",
+    "build": "npm run build:css && npm run build:client && nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "concurrently \"npm run watch:css\" \"nest start --watch\"",
+    "start:dev": "concurrently \"npm run watch:css\" \"npm run watch:client\" \"nest start --watch\"",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main"
   },
@@ -31,6 +33,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.7",
     "concurrently": "^9.1.2",
+    "esbuild": "^0.25.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3"
   }
