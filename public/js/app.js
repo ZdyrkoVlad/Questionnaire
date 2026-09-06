@@ -565,12 +565,13 @@
             "${this.escape(q.description)}"
           </p>
 
-          <!-- Image context + target answer -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+          <!-- Image context (optional) + target answer -->
+          <div class="grid grid-cols-1 ${q.imageContext ? "sm:grid-cols-2" : "sm:grid-cols-1"} gap-2 mt-3">
+            ${q.imageContext ? `
             <div class="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5">
               <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Image Context</p>
               <p class="text-xs text-slate-700 leading-relaxed">${this.escape(q.imageContext)}</p>
-            </div>
+            </div>` : ""}
             <div class="rounded-xl bg-lime-50 border border-lime-200 px-3.5 py-2.5">
               <p class="text-[10px] font-bold uppercase tracking-wider text-lime-600 mb-1">Target Answer</p>
               <p class="text-xs text-slate-700 font-semibold leading-relaxed">${this.escape(q.targetAnswer)}</p>

@@ -1,27 +1,30 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { SubmitSurveyDto, AnswerDto, QGEvalScoresDto } from './dto/submit-survey.dto';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { SubmitSurveyDto, AnswerDto } from './dto/submit-survey.dto';
+import { SaveLoraAnswerDto } from './dto/save-lora-answer.dto';
+import { VqaQuestionService } from '../database/services/vqa-question.service';
+import { LoraAnswerService, LoraAnswerResult } from '../database/services/lora-answer.service';
 
 export const QGEVAL_METRICS = [
-  // Linguistic dimensions
-  { id: 'fluency',           label: 'Fluency',           labelUk: 'Природність',            group: 'linguistic',    description: 'How well-formed, grammatically correct, logically coherent and comprehensible the question is.' },
-  { id: 'clarity',           label: 'Clarity',           labelUk: 'Чіткість',               group: 'linguistic',    description: 'Whether the question is stated clearly and unambiguously, avoiding over-generalisation or vagueness.' },
-  { id: 'conciseness',       label: 'Conciseness',       labelUk: 'Лаконічність',           group: 'linguistic',    description: 'Whether the question is concise and does not contain redundancy or duplicate information.' },
-  // Task-oriented dimensions
-  { id: 'relevance',         label: 'Relevance',         labelUk: 'Релевантність',          group: 'task',          description: 'How relevant the question is to the provided image (domain) and dataset topic.' },
-  { id: 'consistency',       label: 'Consistency',       labelUk: 'Контекстна узгодженість', group: 'task',         description: 'Whether the information stated in the question itself is consistent with the provided image.' },
-  { id: 'answerability',     label: 'Answerability',     labelUk: 'Можливість відповісти',  group: 'task',          description: 'Whether a clear and unambiguous answer can be found relying solely on the provided image.' },
-  { id: 'answer_consistency',label: 'Answer Consistency',labelUk: 'Узгодженість відповіді', group: 'task',          description: 'Whether the generated question can be successfully answered using the target answer that was provided to the model.' },
+  { id: 'fluency',            label: 'Fluency',            labelUk: 'Природність',             group: 'linguistic', description: 'How well-formed, grammatically correct, logically coherent and comprehensible the question is.' },
+  { id: 'clarity',            label: 'Clarity',            labelUk: 'Чіткість',                group: 'linguistic', description: 'Whether the question is stated clearly and unambiguously, avoiding over-generalisation or vagueness.' },
+  { id: 'conciseness',        label: 'Conciseness',        labelUk: 'Лаконічність',            group: 'linguistic', description: 'Whether the question is concise and does not contain redundancy or duplicate information.' },
+  { id: 'relevance',          label: 'Relevance',          labelUk: 'Релевантність',           group: 'task',       description: 'How relevant the question is to the provided image (domain) and dataset topic.' },
+  { id: 'consistency',        label: 'Consistency',        labelUk: 'Контекстна узгодженість', group: 'task',       description: 'Whether the information stated in the question itself is consistent with the provided image.' },
+  { id: 'answerability',      label: 'Answerability',      labelUk: 'Можливість відповісти',   group: 'task',       description: 'Whether a clear and unambiguous answer can be found relying solely on the provided image.' },
+  { id: 'answer_consistency', label: 'Answer Consistency', labelUk: 'Узгодженість відповіді',  group: 'task',       description: 'Whether the generated question can be successfully answered using the target answer provided to the model.' },
 ] as const;
 
 export type MetricId = typeof QGEVAL_METRICS[number]['id'];
 
+/** Shape returned to the client */
 export interface Question {
   id: string;
+  numericId: number;
   title: string;
   category: string;
   description: string;
-  imageContext: string; // domain / image description shown to annotator
-  targetAnswer: string; // reference answer used for answer_consistency
+  imageContext: string;
+  targetAnswer: string;
 }
 
 export interface MetricStat {
@@ -41,6 +44,13 @@ export interface QuestionStat {
   metrics: MetricStat[];
 }
 
+export interface GlobalMetricAverage {
+  metricId: string;
+  label: string;
+  labelUk: string;
+  averageScore: number;
+}
+
 export interface SurveyResponse {
   id: string;
   timestamp: string;
@@ -51,194 +61,176 @@ export interface SurveyResponse {
 
 @Injectable()
 export class SurveyService {
-  private readonly questions: Question[] = [
-    {
-      id: 'q1',
-      title: 'Question 1',
-      category: 'Visual Recognition',
-      description: 'What is the dominant color of the vehicle parked in front of the building?',
-      imageContext: 'An outdoor urban street scene showing a red SUV parked in front of a modern glass office building.',
-      targetAnswer: 'Red',
-    },
-    {
-      id: 'q2',
-      title: 'Question 2',
-      category: 'Object Counting',
-      description: 'How many people are visible in the foreground of the image?',
-      imageContext: 'A busy café terrace with several tables; three people are clearly visible in the foreground while others are blurred in the background.',
-      targetAnswer: 'Three',
-    },
-    {
-      id: 'q3',
-      title: 'Question 3',
-      category: 'Spatial Reasoning',
-      description: 'Where is the clock located relative to the entrance door?',
-      imageContext: 'Interior of a train station. A large analogue clock is mounted on the wall directly above and to the left of the main entrance double doors.',
-      targetAnswer: 'Above and to the left of the entrance door',
-    },
-    {
-      id: 'q4',
-      title: 'Question 4',
-      category: 'Text Recognition',
-      description: 'What text is written on the sign hanging above the shop entrance?',
-      imageContext: 'A street-level photograph of a small bakery. A wooden sign with the words "FRESH BAKED DAILY" hangs above the front door.',
-      targetAnswer: 'FRESH BAKED DAILY',
-    },
-    {
-      id: 'q5',
-      title: 'Question 5',
-      category: 'Activity Recognition',
-      description: 'What activity is the woman in the yellow jacket performing?',
-      imageContext: 'A park scene. A woman wearing a yellow jacket is jogging along a paved path, with earphones in.',
-      targetAnswer: 'Jogging / running',
-    },
-  ];
+  private readonly logger = new Logger(SurveyService.name);
+  private readonly responses: SurveyResponse[] = [];
 
-  // In-memory response store initialised with realistic baseline data
-  private readonly responses: SurveyResponse[] = [
-    {
-      id: 'sample-1',
-      timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-      answers: [
-        { questionId: 'q1', scores: { fluency: 3, clarity: 3, conciseness: 3, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 3 } },
-        { questionId: 'q2', scores: { fluency: 3, clarity: 2, conciseness: 3, relevance: 3, consistency: 3, answerability: 2, answer_consistency: 3 } },
-        { questionId: 'q3', scores: { fluency: 2, clarity: 2, conciseness: 2, relevance: 3, consistency: 2, answerability: 2, answer_consistency: 2 } },
-        { questionId: 'q4', scores: { fluency: 3, clarity: 3, conciseness: 3, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 3 } },
-        { questionId: 'q5', scores: { fluency: 3, clarity: 3, conciseness: 2, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 2 } },
-      ],
-      feedback: 'Questions are generally well-formed and unambiguous.',
-      respondentName: 'Alex M.',
-    },
-    {
-      id: 'sample-2',
-      timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-      answers: [
-        { questionId: 'q1', scores: { fluency: 3, clarity: 3, conciseness: 3, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 3 } },
-        { questionId: 'q2', scores: { fluency: 2, clarity: 2, conciseness: 2, relevance: 2, consistency: 2, answerability: 2, answer_consistency: 2 } },
-        { questionId: 'q3', scores: { fluency: 3, clarity: 2, conciseness: 3, relevance: 3, consistency: 2, answerability: 2, answer_consistency: 2 } },
-        { questionId: 'q4', scores: { fluency: 3, clarity: 3, conciseness: 3, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 3 } },
-        { questionId: 'q5', scores: { fluency: 2, clarity: 2, conciseness: 2, relevance: 3, consistency: 2, answerability: 3, answer_consistency: 2 } },
-      ],
-      feedback: 'Q3 could be clearer about which direction.',
-      respondentName: 'Jordan K.',
-    },
-  ];
+  constructor(
+    private readonly vqaQuestionService: VqaQuestionService,
+    private readonly loraAnswerService: LoraAnswerService,
+  ) {}
 
-  getQuestions(): Question[] {
-    return this.questions;
+  /**
+   * Returns a single random question from the LORA_question collection.
+   */
+  async getQuestions(): Promise<Question[]> {
+    const total = await this.vqaQuestionService.count();
+    this.logger.log(`LORA_question total: ${total} questions. Picking 1 at random…`);
+
+    const doc = await this.vqaQuestionService.findRandom();
+
+    if (!doc) {
+      this.logger.warn('LORA_question collection appears to be empty.');
+      return [];
+    }
+
+    this.logger.log(`Selected question #${doc.id}: "${doc.question.slice(0, 60)}…"`);
+
+    const question: Question = {
+      id: doc.id.toString(),
+      numericId: doc.id,
+      title: `Question #${doc.id}`,
+      category: 'LORA VQA',
+      description: doc.question,
+      imageContext: '',
+      targetAnswer: doc.answer,
+    };
+
+    return [question];
   }
 
-  submitResponse(dto: SubmitSurveyDto): { success: boolean; responseId: string; message: string } {
+  /** GET /api/survey/questions/count */
+  async getCount(): Promise<{ total: number }> {
+    const total = await this.vqaQuestionService.count();
+    return { total };
+  }
+
+  /**
+   * Saves a single answer directly into `LORA_answers` MongoDB collection.
+   */
+  async saveLoraAnswer(dto: SaveLoraAnswerDto): Promise<LoraAnswerResult> {
+    const result = await this.loraAnswerService.create({
+      id: dto.id,
+      questionId: dto.questionId,
+      question: dto.question,
+      answer: dto.answer,
+      imgUrl: dto.imgUrl,
+      score: dto.score,
+      respondentName: dto.respondentName,
+      feedback: dto.feedback,
+    });
+    return result;
+  }
+
+  /**
+   * Submits survey responses and saves each answer to `LORA_answers` in MongoDB.
+   */
+  async submitResponse(dto: SubmitSurveyDto): Promise<{ success: boolean; responseId: string; savedCount: number; message: string }> {
     if (!dto.answers || dto.answers.length === 0) {
       throw new BadRequestException('At least one question score is required.');
     }
 
-    const validQuestionIds = new Set(this.questions.map((q) => q.id));
+    const responseId = 'resp-' + Date.now();
+    let savedCount = 0;
+
     for (const ans of dto.answers) {
-      if (!validQuestionIds.has(ans.questionId)) {
-        throw new BadRequestException(`Question ID "${ans.questionId}" not found.`);
+      const numericId = parseInt(ans.questionId, 10);
+      let questionText = `Question #${ans.questionId}`;
+      let answerText = '';
+
+      if (!isNaN(numericId)) {
+        const qDoc = await this.vqaQuestionService.findById(numericId);
+        if (qDoc) {
+          questionText = qDoc.question;
+          answerText = qDoc.answer;
+        }
       }
+
+      await this.loraAnswerService.create({
+        id: numericId || undefined,
+        questionId: ans.questionId,
+        question: questionText,
+        answer: answerText,
+        score: ans.scores as any,
+        respondentName: dto.respondentName?.trim() || 'Anonymous',
+        feedback: dto.feedback?.trim(),
+      });
+      savedCount++;
     }
 
-    const responseId = 'resp-' + Date.now();
     const newResponse: SurveyResponse = {
       id: responseId,
       timestamp: new Date().toISOString(),
       answers: dto.answers,
       feedback: dto.feedback?.trim(),
-      respondentName: dto.respondentName?.trim() || 'Anonymous User',
+      respondentName: dto.respondentName?.trim() || 'Anonymous',
     };
-
     this.responses.push(newResponse);
+
+    this.logger.log(`Saved ${savedCount} answer(s) into LORA_answers collection in MongoDB.`);
 
     return {
       success: true,
       responseId,
-      message: 'Thank you! Your QGEval ratings have been recorded.',
+      savedCount,
+      message: 'Thank you! Your answers and ratings have been saved to LORA_answers.',
     };
   }
 
-  getResults() {
-    const totalResponses = this.responses.length;
+  async getResults() {
+    const dbAnswers = await this.loraAnswerService.findAll();
+    const totalResponses = dbAnswers.length;
 
-    const questionStats: QuestionStat[] = this.questions.map((question) => {
-      const answersForQ = this.responses.flatMap((r) =>
-        r.answers.filter((a) => a.questionId === question.id),
-      );
+    const questionIds = [...new Set(dbAnswers.map((a) => a.questionId.toString()))];
+
+    const questionStats: QuestionStat[] = questionIds.map((qId) => {
+      const answersForQ = dbAnswers.filter((a) => a.questionId.toString() === qId);
       const count = answersForQ.length;
 
       const metrics: MetricStat[] = QGEVAL_METRICS.map((metric) => {
-        const scores = answersForQ.map((a) => (a.scores as any)[metric.id] as number);
+        const scores = answersForQ.map((a) => (a.score as any)?.[metric.id] as number).filter((s) => typeof s === 'number');
         const sum = scores.reduce((acc, s) => acc + s, 0);
-        const avg = count > 0 ? parseFloat((sum / count).toFixed(2)) : 0;
+        const avg = count > 0 && scores.length > 0 ? parseFloat((sum / scores.length).toFixed(2)) : 0;
 
         const distribution = [1, 2, 3].map((s) => {
           const cnt = scores.filter((v) => v === s).length;
-          return {
-            score: s,
-            count: cnt,
-            percentage: count > 0 ? Math.round((cnt / count) * 100) : 0,
-          };
+          return { score: s, count: cnt, percentage: scores.length > 0 ? Math.round((cnt / scores.length) * 100) : 0 };
         });
 
-        return {
-          metricId: metric.id,
-          label: metric.label,
-          labelUk: metric.labelUk,
-          averageScore: avg,
-          distribution,
-        };
+        return { metricId: metric.id, label: metric.label, labelUk: metric.labelUk, averageScore: avg, distribution };
       });
 
-      const allScores = metrics.flatMap((m) => m.distribution.flatMap((d) => Array(d.count).fill(d.score)));
-      const totalSum = allScores.reduce((a, b) => a + b, 0);
-      const overallAverage = allScores.length > 0 ? parseFloat((totalSum / allScores.length).toFixed(2)) : 0;
+      const allScores = metrics.flatMap((m) =>
+        m.distribution.flatMap((d) => Array(d.count).fill(d.score)),
+      );
+      const overallAverage =
+        allScores.length > 0
+          ? parseFloat((allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2))
+          : 0;
 
-      return {
-        questionId: question.id,
-        title: question.title,
-        category: question.category,
-        count,
-        overallAverage,
-        metrics,
-      };
+      return { questionId: qId, title: `Question #${qId}`, category: 'LORA VQA', count, overallAverage, metrics };
     });
 
-    // Global averages per metric across all questions
-    const globalMetricAverages = QGEVAL_METRICS.map((metric) => {
-      const allScores = this.responses.flatMap((r) =>
-        r.answers.map((a) => (a.scores as any)[metric.id] as number),
-      );
-      const avg = allScores.length > 0
-        ? parseFloat((allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2))
-        : 0;
+    const globalMetricAverages: GlobalMetricAverage[] = QGEVAL_METRICS.map((metric) => {
+      const allScores = dbAnswers
+        .map((a) => (a.score as any)?.[metric.id] as number)
+        .filter((s) => typeof s === 'number');
+      const avg =
+        allScores.length > 0
+          ? parseFloat((allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2))
+          : 0;
       return { metricId: metric.id, label: metric.label, labelUk: metric.labelUk, averageScore: avg };
     });
 
-    const allScoresFlat = this.responses.flatMap((r) =>
-      r.answers.flatMap((a) => Object.values(a.scores) as number[]),
-    );
-    const overallAverage =
-      allScoresFlat.length > 0
-        ? parseFloat((allScoresFlat.reduce((a, b) => a + b, 0) / allScoresFlat.length).toFixed(2))
-        : 0;
-
-    const recentFeedback = this.responses
-      .filter((r) => r.feedback && r.feedback.length > 0)
+    const recentFeedback = dbAnswers
+      .filter((a) => a.feedback && a.feedback.length > 0)
       .slice(-5)
       .reverse()
-      .map((r) => ({
-        respondent: r.respondentName,
-        feedback: r.feedback,
-        timestamp: r.timestamp,
+      .map((a) => ({
+        respondent: a.respondentName ?? 'Anonymous',
+        feedback: a.feedback!,
+        timestamp: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
       }));
 
-    return {
-      totalResponses,
-      overallAverage,
-      globalMetricAverages,
-      questionStats,
-      recentFeedback,
-    };
+    return { totalResponses, overallAverage: 0, globalMetricAverages, questionStats, recentFeedback };
   }
 }
