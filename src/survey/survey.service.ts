@@ -107,6 +107,39 @@ export class SurveyService {
   }
 
   /**
+   * Returns a specific question by numeric id or index from the database.
+   */
+  async getQuestionById(id: number): Promise<Question | null> {
+    // 1. Try finding by exact numeric id field
+    let doc = await this.vqaQuestionService.findById(id);
+    // 2. Fallback: try id - 1 (in case DB IDs are 0-indexed)
+    if (!doc && id > 0) {
+      doc = await this.vqaQuestionService.findById(id - 1);
+    }
+    // 3. Fallback: try by collection offset
+    if (!doc && id >= 1) {
+      const page = await this.vqaQuestionService.findPage(id - 1, 1);
+      if (page && page.length > 0) {
+        doc = page[0];
+      }
+    }
+
+    if (!doc) {
+      return null;
+    }
+
+    return {
+      id: doc.id.toString(),
+      numericId: doc.id,
+      title: `Question #${doc.id}`,
+      category: 'LORA VQA',
+      description: doc.question,
+      imageContext: '',
+      targetAnswer: doc.answer,
+    };
+  }
+
+  /**
    * Saves a single answer directly into `LORA_answers` MongoDB collection.
    */
   async saveLoraAnswer(dto: SaveLoraAnswerDto): Promise<LoraAnswerResult> {

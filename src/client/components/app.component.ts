@@ -44,7 +44,6 @@ export class AppComponent extends BaseComponent {
             <span class="w-2 h-2 rounded-full bg-lime-500"></span>
             <span class="font-semibold text-slate-800">Questionnaire NestJS Service</span>
             <span>•</span>
-            <span>Angular-Style Components</span>
           </div>
           <div class="text-slate-400">
             Tailwind CSS • Light Theme • Black / Grey / Lime

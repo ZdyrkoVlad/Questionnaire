@@ -6,7 +6,6 @@
 import './core/injectable.decorator';
 import './core/component.decorator';
 
-// Angular-style Components
 import './components/header/header.component';
 import './components/rating-scale/rating-scale.component';
 import './components/qgeval-metric-row/qgeval-metric-row.component';

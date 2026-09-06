@@ -108,6 +108,34 @@ export class SurveyService {
   private viewListeners = new Set<(view: ActiveView) => void>();
   private scoreListeners = new Set<(scores: Map<string, QGEvalScores>) => void>();
 
+  private totalCount = 1;
+
+  async getTotalQuestionsCount(): Promise<number> {
+    try {
+      const res = await fetch('/api/survey/questions/count');
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.total === 'number') {
+          this.totalCount = data.total;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch question count:', e);
+    }
+    return this.totalCount;
+  }
+
+  async fetchQuestionByIndex(index: number): Promise<Question> {
+    const res = await fetch(`/api/survey/questions/${index}`);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || `Question #${index} not found in database`);
+    }
+    const q: Question = await res.json();
+    this.questions = [q];
+    return q;
+  }
+
   async getQuestions(): Promise<Question[]> {
     if (this.questions.length > 0) {
       return this.questions;
@@ -153,7 +181,7 @@ export class SurveyService {
     return this.questions.filter((q) => this.isQuestionFullyAnswered(q.id)).length;
   }
 
-  getTotalQuestionsCount(): number {
+  getLoadedQuestionsCount(): number {
     return this.questions.length;
   }
 

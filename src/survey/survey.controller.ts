@@ -3,6 +3,10 @@ import {
   Get,
   Post,
   Body,
+  Param,
+  Query,
+  ParseIntPipe,
+  NotFoundException,
   UsePipes,
   ValidationPipe,
   HttpCode,
@@ -22,10 +26,28 @@ export class SurveyController {
     return this.surveyService.getCount();
   }
 
-  /** Returns a single random question from LORA_question */
+  /** Returns a question by id query or a random question */
   @Get('questions')
-  async getQuestions() {
+  async getQuestions(@Query('id') idQuery?: string) {
+    if (idQuery) {
+      const id = parseInt(idQuery, 10);
+      if (!isNaN(id)) {
+        const question = await this.surveyService.getQuestionById(id);
+        if (question) return [question];
+        throw new NotFoundException(`Question #${id} not found in database`);
+      }
+    }
     return this.surveyService.getQuestions();
+  }
+
+  /** Returns a specific question by its numeric ID */
+  @Get('questions/:id')
+  async getQuestionById(@Param('id', ParseIntPipe) id: number) {
+    const question = await this.surveyService.getQuestionById(id);
+    if (!question) {
+      throw new NotFoundException(`Question #${id} not found in database`);
+    }
+    return question;
   }
 
   /**
