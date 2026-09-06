@@ -459,7 +459,7 @@ export class SurveyFormComponent extends BaseComponent {
       finishBtn.disabled = true;
       finishBtn.innerHTML = `
         <div class="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-        <span>Збереження…</span>
+        <span>Saving…</span>
       `;
     }
 
@@ -473,7 +473,7 @@ export class SurveyFormComponent extends BaseComponent {
           <svg class="w-4 h-4 text-lime-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
-          Збережено успішно! ✓
+          Save!
         `;
       }
 
@@ -496,7 +496,7 @@ export class SurveyFormComponent extends BaseComponent {
           <svg class="w-4 h-4 text-lime-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
-          Зберегти оцінку
+          Save score
         `;
       }
     }
