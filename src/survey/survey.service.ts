@@ -1,15 +1,44 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { SubmitSurveyDto, AnswerDto } from './dto/submit-survey.dto';
+import { SubmitSurveyDto, AnswerDto, QGEvalScoresDto } from './dto/submit-survey.dto';
+
+export const QGEVAL_METRICS = [
+  // Linguistic dimensions
+  { id: 'fluency',           label: 'Fluency',           labelUk: 'Природність',            group: 'linguistic',    description: 'How well-formed, grammatically correct, logically coherent and comprehensible the question is.' },
+  { id: 'clarity',           label: 'Clarity',           labelUk: 'Чіткість',               group: 'linguistic',    description: 'Whether the question is stated clearly and unambiguously, avoiding over-generalisation or vagueness.' },
+  { id: 'conciseness',       label: 'Conciseness',       labelUk: 'Лаконічність',           group: 'linguistic',    description: 'Whether the question is concise and does not contain redundancy or duplicate information.' },
+  // Task-oriented dimensions
+  { id: 'relevance',         label: 'Relevance',         labelUk: 'Релевантність',          group: 'task',          description: 'How relevant the question is to the provided image (domain) and dataset topic.' },
+  { id: 'consistency',       label: 'Consistency',       labelUk: 'Контекстна узгодженість', group: 'task',         description: 'Whether the information stated in the question itself is consistent with the provided image.' },
+  { id: 'answerability',     label: 'Answerability',     labelUk: 'Можливість відповісти',  group: 'task',          description: 'Whether a clear and unambiguous answer can be found relying solely on the provided image.' },
+  { id: 'answer_consistency',label: 'Answer Consistency',labelUk: 'Узгодженість відповіді', group: 'task',          description: 'Whether the generated question can be successfully answered using the target answer that was provided to the model.' },
+] as const;
+
+export type MetricId = typeof QGEVAL_METRICS[number]['id'];
 
 export interface Question {
   id: string;
   title: string;
   category: string;
   description: string;
-  minScore: number;
-  maxScore: number;
-  minLabel: string;
-  maxLabel: string;
+  imageContext: string; // domain / image description shown to annotator
+  targetAnswer: string; // reference answer used for answer_consistency
+}
+
+export interface MetricStat {
+  metricId: string;
+  label: string;
+  labelUk: string;
+  averageScore: number;
+  distribution: { score: number; count: number; percentage: number }[];
+}
+
+export interface QuestionStat {
+  questionId: string;
+  title: string;
+  category: string;
+  count: number;
+  overallAverage: number;
+  metrics: MetricStat[];
 }
 
 export interface SurveyResponse {
@@ -24,71 +53,73 @@ export interface SurveyResponse {
 export class SurveyService {
   private readonly questions: Question[] = [
     {
-      id: 'satisfaction',
-      title: 'Overall Satisfaction',
-      category: 'Experience',
-      description: 'How satisfied are you with the overall service and responsiveness of our platform?',
-      minScore: 1,
-      maxScore: 10,
-      minLabel: 'Very Dissatisfied (1)',
-      maxLabel: 'Extremely Satisfied (10)',
+      id: 'q1',
+      title: 'Question 1',
+      category: 'Visual Recognition',
+      description: 'What is the dominant color of the vehicle parked in front of the building?',
+      imageContext: 'An outdoor urban street scene showing a red SUV parked in front of a modern glass office building.',
+      targetAnswer: 'Red',
     },
     {
-      id: 'recommendation',
-      title: 'Net Promoter Rating',
-      category: 'Loyalty',
-      description: 'How likely are you to recommend our product or solution to a colleague or friend?',
-      minScore: 1,
-      maxScore: 10,
-      minLabel: 'Not at all likely (1)',
-      maxLabel: 'Extremely likely (10)',
+      id: 'q2',
+      title: 'Question 2',
+      category: 'Object Counting',
+      description: 'How many people are visible in the foreground of the image?',
+      imageContext: 'A busy café terrace with several tables; three people are clearly visible in the foreground while others are blurred in the background.',
+      targetAnswer: 'Three',
     },
     {
-      id: 'usability',
-      title: 'Ease of Use & Interface',
-      category: 'Design',
-      description: 'How effortless and intuitive was it to navigate and find what you needed?',
-      minScore: 1,
-      maxScore: 10,
-      minLabel: 'Very Difficult (1)',
-      maxLabel: 'Seamless & Easy (10)',
+      id: 'q3',
+      title: 'Question 3',
+      category: 'Spatial Reasoning',
+      description: 'Where is the clock located relative to the entrance door?',
+      imageContext: 'Interior of a train station. A large analogue clock is mounted on the wall directly above and to the left of the main entrance double doors.',
+      targetAnswer: 'Above and to the left of the entrance door',
     },
     {
-      id: 'performance',
-      title: 'Speed & Reliability',
-      category: 'Performance',
-      description: 'How would you rate the speed, stability, and system performance during your session?',
-      minScore: 1,
-      maxScore: 10,
-      minLabel: 'Laggy & Unreliable (1)',
-      maxLabel: 'Blazing Fast & Robust (10)',
+      id: 'q4',
+      title: 'Question 4',
+      category: 'Text Recognition',
+      description: 'What text is written on the sign hanging above the shop entrance?',
+      imageContext: 'A street-level photograph of a small bakery. A wooden sign with the words "FRESH BAKED DAILY" hangs above the front door.',
+      targetAnswer: 'FRESH BAKED DAILY',
+    },
+    {
+      id: 'q5',
+      title: 'Question 5',
+      category: 'Activity Recognition',
+      description: 'What activity is the woman in the yellow jacket performing?',
+      imageContext: 'A park scene. A woman wearing a yellow jacket is jogging along a paved path, with earphones in.',
+      targetAnswer: 'Jogging / running',
     },
   ];
 
-  // In-memory response store initialized with realistic baseline data
+  // In-memory response store initialised with realistic baseline data
   private readonly responses: SurveyResponse[] = [
     {
       id: 'sample-1',
       timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
       answers: [
-        { questionId: 'satisfaction', score: 9 },
-        { questionId: 'recommendation', score: 10 },
-        { questionId: 'usability', score: 8 },
-        { questionId: 'performance', score: 9 },
+        { questionId: 'q1', scores: { fluency: 3, clarity: 3, conciseness: 3, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 3 } },
+        { questionId: 'q2', scores: { fluency: 3, clarity: 2, conciseness: 3, relevance: 3, consistency: 3, answerability: 2, answer_consistency: 3 } },
+        { questionId: 'q3', scores: { fluency: 2, clarity: 2, conciseness: 2, relevance: 3, consistency: 2, answerability: 2, answer_consistency: 2 } },
+        { questionId: 'q4', scores: { fluency: 3, clarity: 3, conciseness: 3, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 3 } },
+        { questionId: 'q5', scores: { fluency: 3, clarity: 3, conciseness: 2, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 2 } },
       ],
-      feedback: 'Very intuitive design and clean light aesthetics. Love the lime green accent!',
+      feedback: 'Questions are generally well-formed and unambiguous.',
       respondentName: 'Alex M.',
     },
     {
       id: 'sample-2',
       timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
       answers: [
-        { questionId: 'satisfaction', score: 8 },
-        { questionId: 'recommendation', score: 9 },
-        { questionId: 'usability', score: 9 },
-        { questionId: 'performance', score: 8 },
+        { questionId: 'q1', scores: { fluency: 3, clarity: 3, conciseness: 3, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 3 } },
+        { questionId: 'q2', scores: { fluency: 2, clarity: 2, conciseness: 2, relevance: 2, consistency: 2, answerability: 2, answer_consistency: 2 } },
+        { questionId: 'q3', scores: { fluency: 3, clarity: 2, conciseness: 3, relevance: 3, consistency: 2, answerability: 2, answer_consistency: 2 } },
+        { questionId: 'q4', scores: { fluency: 3, clarity: 3, conciseness: 3, relevance: 3, consistency: 3, answerability: 3, answer_consistency: 3 } },
+        { questionId: 'q5', scores: { fluency: 2, clarity: 2, conciseness: 2, relevance: 3, consistency: 2, answerability: 3, answer_consistency: 2 } },
       ],
-      feedback: 'Setup was effortless and deployment on Render worked out of the box.',
+      feedback: 'Q3 could be clearer about which direction.',
       respondentName: 'Jordan K.',
     },
   ];
@@ -102,7 +133,6 @@ export class SurveyService {
       throw new BadRequestException('At least one question score is required.');
     }
 
-    // Validate that question IDs exist
     const validQuestionIds = new Set(this.questions.map((q) => q.id));
     for (const ans of dto.answers) {
       if (!validQuestionIds.has(ans.questionId)) {
@@ -124,47 +154,75 @@ export class SurveyService {
     return {
       success: true,
       responseId,
-      message: 'Thank you! Your feedback has been recorded.',
+      message: 'Thank you! Your QGEval ratings have been recorded.',
     };
   }
 
   getResults() {
     const totalResponses = this.responses.length;
 
-    // Per question statistics
-    const questionStats = this.questions.map((question) => {
-      const scoresForQuestion = this.responses.flatMap((r) =>
-        r.answers.filter((a) => a.questionId === question.id).map((a) => a.score),
+    const questionStats: QuestionStat[] = this.questions.map((question) => {
+      const answersForQ = this.responses.flatMap((r) =>
+        r.answers.filter((a) => a.questionId === question.id),
       );
+      const count = answersForQ.length;
 
-      const count = scoresForQuestion.length;
-      const sum = scoresForQuestion.reduce((acc, s) => acc + s, 0);
-      const avg = count > 0 ? parseFloat((sum / count).toFixed(1)) : 0;
+      const metrics: MetricStat[] = QGEVAL_METRICS.map((metric) => {
+        const scores = answersForQ.map((a) => (a.scores as any)[metric.id] as number);
+        const sum = scores.reduce((acc, s) => acc + s, 0);
+        const avg = count > 0 ? parseFloat((sum / count).toFixed(2)) : 0;
 
-      // Distribution array from score 1 to 10
-      const distribution: { score: number; count: number; percentage: number }[] = [];
-      for (let s = 1; s <= 10; s++) {
-        const scoreCount = scoresForQuestion.filter((val) => val === s).length;
-        const percentage = count > 0 ? Math.round((scoreCount / count) * 100) : 0;
-        distribution.push({ score: s, count: scoreCount, percentage });
-      }
+        const distribution = [1, 2, 3].map((s) => {
+          const cnt = scores.filter((v) => v === s).length;
+          return {
+            score: s,
+            count: cnt,
+            percentage: count > 0 ? Math.round((cnt / count) * 100) : 0,
+          };
+        });
+
+        return {
+          metricId: metric.id,
+          label: metric.label,
+          labelUk: metric.labelUk,
+          averageScore: avg,
+          distribution,
+        };
+      });
+
+      const allScores = metrics.flatMap((m) => m.distribution.flatMap((d) => Array(d.count).fill(d.score)));
+      const totalSum = allScores.reduce((a, b) => a + b, 0);
+      const overallAverage = allScores.length > 0 ? parseFloat((totalSum / allScores.length).toFixed(2)) : 0;
 
       return {
         questionId: question.id,
         title: question.title,
         category: question.category,
         count,
-        averageScore: avg,
-        distribution,
+        overallAverage,
+        metrics,
       };
     });
 
-    // Overall global average
-    const allScores = this.responses.flatMap((r) => r.answers.map((a) => a.score));
-    const globalSum = allScores.reduce((acc, s) => acc + s, 0);
-    const overallAverage = allScores.length > 0 ? parseFloat((globalSum / allScores.length).toFixed(1)) : 0;
+    // Global averages per metric across all questions
+    const globalMetricAverages = QGEVAL_METRICS.map((metric) => {
+      const allScores = this.responses.flatMap((r) =>
+        r.answers.map((a) => (a.scores as any)[metric.id] as number),
+      );
+      const avg = allScores.length > 0
+        ? parseFloat((allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2))
+        : 0;
+      return { metricId: metric.id, label: metric.label, labelUk: metric.labelUk, averageScore: avg };
+    });
 
-    // Recent feedback snippets
+    const allScoresFlat = this.responses.flatMap((r) =>
+      r.answers.flatMap((a) => Object.values(a.scores) as number[]),
+    );
+    const overallAverage =
+      allScoresFlat.length > 0
+        ? parseFloat((allScoresFlat.reduce((a, b) => a + b, 0) / allScoresFlat.length).toFixed(2))
+        : 0;
+
     const recentFeedback = this.responses
       .filter((r) => r.feedback && r.feedback.length > 0)
       .slice(-5)
@@ -178,6 +236,7 @@ export class SurveyService {
     return {
       totalResponses,
       overallAverage,
+      globalMetricAverages,
       questionStats,
       recentFeedback,
     };

@@ -9,6 +9,7 @@ import './core/component.decorator';
 // Angular-style Components
 import './components/header/header.component';
 import './components/rating-scale/rating-scale.component';
+import './components/qgeval-metric-row/qgeval-metric-row.component';
 import './components/question-card/question-card.component';
 import './components/survey-form/survey-form.component';
 import './components/results-view/results-view.component';
