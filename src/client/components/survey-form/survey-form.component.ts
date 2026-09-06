@@ -13,6 +13,8 @@ export class SurveyFormComponent extends BaseComponent {
   private currentQuestionId = 1;
   private isLoading = true;
   private isFetchingQuestion = false;
+  private isSubmitting = false;
+  private autoAdvanceTimer?: any;
   private errorMessage = '';
   private unsubscribeScores?: () => void;
 
@@ -37,6 +39,7 @@ export class SurveyFormComponent extends BaseComponent {
       this.mountCurrentCard();
       this.bindNavEvents();
       this.updateButtonStates();
+      this.resetFinishButton();
     } catch (err: any) {
       this.isLoading = false;
       this.errorMessage = err.message || 'Error loading questionnaire';
@@ -45,6 +48,10 @@ export class SurveyFormComponent extends BaseComponent {
   }
 
   ngOnDestroy(): void {
+    if (this.autoAdvanceTimer) {
+      clearTimeout(this.autoAdvanceTimer);
+      this.autoAdvanceTimer = undefined;
+    }
     this.unsubscribeScores?.();
   }
 
@@ -196,12 +203,12 @@ export class SurveyFormComponent extends BaseComponent {
           <button
             type="button"
             id="finish-btn"
-            class="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-lime-400 hover:bg-lime-500 text-slate-950 font-bold text-sm transition-all duration-150 shadow-md shadow-lime-400/25 hover:shadow-lime-400/40 active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2"
+            class="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-lime-400 hover:bg-lime-500 text-slate-950 font-bold text-sm transition-all duration-150 shadow-md shadow-lime-400/25 hover:shadow-lime-400/40 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2"
           >
             <svg class="w-4 h-4 text-lime-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
             </svg>
-            Save score
+            <span>Save score</span>
           </button>
 
           <!-- Next button -->
@@ -318,6 +325,12 @@ export class SurveyFormComponent extends BaseComponent {
   private async loadQuestionById(index: number): Promise<void> {
     if (this.isFetchingQuestion) return;
 
+    if (this.autoAdvanceTimer) {
+      clearTimeout(this.autoAdvanceTimer);
+      this.autoAdvanceTimer = undefined;
+    }
+    this.isSubmitting = false;
+
     if (index < 1) {
       this.showIndexError('Індекс запитання має бути не менше 1');
       return;
@@ -332,6 +345,11 @@ export class SurveyFormComponent extends BaseComponent {
     this.showIndexLoading(true);
     this.isFetchingQuestion = true;
 
+    // Clear any previous form validation error and reset the save button
+    const errorEl = this.$('#form-error');
+    if (errorEl) errorEl.classList.add('hidden');
+    this.resetFinishButton();
+
     try {
       const q = await this.surveyService.fetchQuestionByIndex(index);
       this.questions = [q];
@@ -343,15 +361,29 @@ export class SurveyFormComponent extends BaseComponent {
 
       this.mountCurrentCard();
       this.updateButtonStates();
+      this.resetFinishButton();
 
       // Smooth scroll to card
       this.$('#card-slot')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err: any) {
       this.showIndexError(err.message || `Не вдалося отримати питання #${index}`);
+      this.resetFinishButton();
     } finally {
       this.showIndexLoading(false);
       this.isFetchingQuestion = false;
     }
+  }
+
+  private resetFinishButton(): void {
+    const finishBtn = this.$<HTMLButtonElement>('#finish-btn');
+    if (!finishBtn) return;
+    finishBtn.disabled = false;
+    finishBtn.innerHTML = `
+      <svg class="w-4 h-4 text-lime-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+      </svg>
+      <span>Save score</span>
+    `;
   }
 
   private showIndexError(message: string): void {
@@ -385,6 +417,7 @@ export class SurveyFormComponent extends BaseComponent {
     const nextBtn = this.$<HTMLButtonElement>('#next-btn');
     const stepPrevBtn = this.$<HTMLButtonElement>('#step-prev-btn');
     const stepNextBtn = this.$<HTMLButtonElement>('#step-next-btn');
+    const finishBtn = this.$<HTMLButtonElement>('#finish-btn');
 
     const isFirst = this.currentQuestionId <= 1;
     const isLast = this.totalQuestionsInDb > 0 && this.currentQuestionId >= this.totalQuestionsInDb;
@@ -431,10 +464,29 @@ export class SurveyFormComponent extends BaseComponent {
         stepNextBtn.classList.remove('opacity-40', 'cursor-not-allowed');
       }
     }
+
+    // Ensure save button is enabled whenever user is not actively submitting
+    if (finishBtn && !this.isSubmitting) {
+      finishBtn.disabled = false;
+    }
+
+    // Clear error message if question is now fully scored
+    const currentQ = this.questions[0];
+    if (currentQ) {
+      const isFullyAnswered = this.surveyService.isQuestionFullyAnswered(currentQ.id);
+      if (isFullyAnswered) {
+        const errorEl = this.$('#form-error');
+        if (errorEl && !errorEl.classList.contains('hidden')) {
+          errorEl.classList.add('hidden');
+        }
+      }
+    }
   }
 
   // ─── Finish / Submit ──────────────────────────────────────────────────────
   private async handleFinish(): Promise<void> {
+    if (this.isSubmitting) return;
+
     const errorEl = this.$('#form-error');
 
     const currentQ = this.questions[0];
@@ -454,6 +506,7 @@ export class SurveyFormComponent extends BaseComponent {
 
     if (errorEl) errorEl.classList.add('hidden');
 
+    this.isSubmitting = true;
     const finishBtn = this.$<HTMLButtonElement>('#finish-btn');
     if (finishBtn) {
       finishBtn.disabled = true;
@@ -473,32 +526,32 @@ export class SurveyFormComponent extends BaseComponent {
           <svg class="w-4 h-4 text-lime-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
-          Save!
+          <span>Save!</span>
         `;
       }
 
-      setTimeout(() => {
+      if (this.autoAdvanceTimer) {
+        clearTimeout(this.autoAdvanceTimer);
+      }
+
+      this.autoAdvanceTimer = setTimeout(async () => {
+        this.autoAdvanceTimer = undefined;
+        this.isSubmitting = false;
+
         if (this.currentQuestionId < this.totalQuestionsInDb) {
-          this.loadQuestionById(this.currentQuestionId + 1);
+          await this.loadQuestionById(this.currentQuestionId + 1);
         } else {
           this.surveyService.setView('results');
         }
       }, 1000);
 
     } catch (err: any) {
+      this.isSubmitting = false;
       if (errorEl) {
         errorEl.textContent = `Помилка збереження: ${err.message}`;
         errorEl.classList.remove('hidden');
       }
-      if (finishBtn) {
-        finishBtn.disabled = false;
-        finishBtn.innerHTML = `
-          <svg class="w-4 h-4 text-lime-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-          </svg>
-          Save score
-        `;
-      }
+      this.resetFinishButton();
     }
   }
 
