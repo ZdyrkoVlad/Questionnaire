@@ -12,10 +12,10 @@
     "watch:client": "esbuild src/client/main.ts --bundle --outfile=public/js/app.js --watch --sourcemap --tsconfig=tsconfig.client.json",
     "build": "npm run build:css && npm run build:client && nest build",
     "format": "prettier --write \"src/**/*.ts\"",
-    "start": "nest start",
+    "start": "node dist/main.js",
     "start:dev": "concurrently \"npm run watch:css\" \"npm run watch:client\" \"nest start --watch\"",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main"
+    "start:prod": "node dist/main.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
