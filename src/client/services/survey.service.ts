@@ -73,7 +73,10 @@ export interface RecentFeedback {
   timestamp: string;
 }
 
+export const APP_VERSION = '1.0.0';
+
 export interface SurveyResults {
+  version?: string;
   totalResponses: number;
   overallAverage: number;
   globalMetricAverages: GlobalMetricAverage[];
@@ -82,6 +85,7 @@ export interface SurveyResults {
 }
 
 export interface SubmitPayload {
+  version?: string;
   answers: { questionId: string; scores: QGEvalScores }[];
   respondentName?: string;
   feedback?: string;

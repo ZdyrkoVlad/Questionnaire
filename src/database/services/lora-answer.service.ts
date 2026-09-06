@@ -12,6 +12,7 @@ export interface CreateLoraAnswerInput {
   score: Record<string, number>;
   respondentName?: string;
   feedback?: string;
+  version?: string;
 }
 
 export interface LoraAnswerResult {
@@ -24,6 +25,7 @@ export interface LoraAnswerResult {
   score: Record<string, number>;
   respondentName?: string;
   feedback?: string;
+  version?: string;
   createdAt?: Date;
 }
 

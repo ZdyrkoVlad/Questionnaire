@@ -41,4 +41,8 @@ export class SaveLoraAnswerDto {
   @IsOptional()
   @IsString()
   feedback?: string;
+
+  @IsOptional()
+  @IsString()
+  version?: string;
 }

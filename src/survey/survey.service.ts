@@ -4,6 +4,8 @@ import { SaveLoraAnswerDto } from './dto/save-lora-answer.dto';
 import { VqaQuestionService } from '../database/services/vqa-question.service';
 import { LoraAnswerService, LoraAnswerResult } from '../database/services/lora-answer.service';
 
+export const APP_VERSION = '1.0.0';
+
 export const QGEVAL_METRICS = [
   { id: 'fluency',            label: 'Fluency',            labelUk: 'Природність',             group: 'linguistic', description: 'How well-formed, grammatically correct, logically coherent and comprehensible the question is.' },
   { id: 'clarity',            label: 'Clarity',            labelUk: 'Чіткість',                group: 'linguistic', description: 'Whether the question is stated clearly and unambiguously, avoiding over-generalisation or vagueness.' },
@@ -99,9 +101,9 @@ export class SurveyService {
   }
 
   /** GET /api/survey/questions/count */
-  async getCount(): Promise<{ total: number }> {
+  async getCount(): Promise<{ total: number; version: string }> {
     const total = await this.vqaQuestionService.count();
-    return { total };
+    return { total, version: APP_VERSION };
   }
 
   /**
@@ -117,6 +119,7 @@ export class SurveyService {
       score: dto.score,
       respondentName: dto.respondentName,
       feedback: dto.feedback,
+      version: dto.version || APP_VERSION,
     });
     return result;
   }
@@ -124,7 +127,7 @@ export class SurveyService {
   /**
    * Submits survey responses and saves each answer to `LORA_answers` in MongoDB.
    */
-  async submitResponse(dto: SubmitSurveyDto): Promise<{ success: boolean; responseId: string; savedCount: number; message: string }> {
+  async submitResponse(dto: SubmitSurveyDto): Promise<{ success: boolean; responseId: string; savedCount: number; version: string; message: string }> {
     if (!dto.answers || dto.answers.length === 0) {
       throw new BadRequestException('At least one question score is required.');
     }
@@ -153,6 +156,7 @@ export class SurveyService {
         score: ans.scores as any,
         respondentName: dto.respondentName?.trim() || 'Anonymous',
         feedback: dto.feedback?.trim(),
+        version: APP_VERSION,
       });
       savedCount++;
     }
@@ -172,6 +176,7 @@ export class SurveyService {
       success: true,
       responseId,
       savedCount,
+      version: APP_VERSION,
       message: 'Thank you! Your answers and ratings have been saved to LORA_answers.',
     };
   }
@@ -231,6 +236,6 @@ export class SurveyService {
         timestamp: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
       }));
 
-    return { totalResponses, overallAverage: 0, globalMetricAverages, questionStats, recentFeedback };
+    return { version: APP_VERSION, totalResponses, overallAverage: 0, globalMetricAverages, questionStats, recentFeedback };
   }
 }

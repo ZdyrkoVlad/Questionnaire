@@ -820,10 +820,6 @@ body::selection {
   margin-left: 0.25rem;
 }
 
-.ml-1\.5 {
-  margin-left: 0.375rem;
-}
-
 .ml-auto {
   margin-left: auto;
 }
@@ -1255,6 +1251,10 @@ body::selection {
   border-color: rgb(245 158 11 / var(--tw-border-opacity, 1));
 }
 
+.border-indigo-200\/80 {
+  border-color: rgb(199 210 254 / 0.8);
+}
+
 .border-lime-200 {
   --tw-border-opacity: 1;
   border-color: rgb(217 249 157 / var(--tw-border-opacity, 1));
@@ -1330,6 +1330,11 @@ body::selection {
 .bg-amber-400 {
   --tw-bg-opacity: 1;
   background-color: rgb(251 191 36 / var(--tw-bg-opacity, 1));
+}
+
+.bg-indigo-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(238 242 255 / var(--tw-bg-opacity, 1));
 }
 
 .bg-lime-100 {
@@ -1667,6 +1672,11 @@ body::selection {
 .text-amber-600 {
   --tw-text-opacity: 1;
   color: rgb(217 119 6 / var(--tw-text-opacity, 1));
+}
+
+.text-indigo-700 {
+  --tw-text-opacity: 1;
+  color: rgb(67 56 202 / var(--tw-text-opacity, 1));
 }
 
 .text-lime-400 {

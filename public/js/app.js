@@ -223,9 +223,10 @@
             <div class="h-9 w-9 rounded-xl bg-slate-950 flex items-center justify-center shadow-sm">
               <span class="text-lime-400 font-extrabold text-lg leading-none">10</span>
             </div>
-            <div>
+            <div class="flex items-center gap-2">
               <span class="font-bold text-slate-950 tracking-tight text-base">RatePulse</span>
-              <span class="hidden sm:inline text-xs text-slate-400 font-medium ml-1.5 border-l border-slate-200 pl-2">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">v1.0.0</span>
+              <span class="hidden sm:inline text-xs text-slate-400 font-medium border-l border-slate-200 pl-2">
                 Angular-Style Components
               </span>
             </div>
