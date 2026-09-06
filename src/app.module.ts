@@ -4,6 +4,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { SurveyModule } from './survey/survey.module';
 import { DatabaseModule } from './database/database.module';
+import { ImageExampleModule } from './image-example/image-example.module';
 
 @Module({
   imports: [
@@ -24,6 +25,9 @@ import { DatabaseModule } from './database/database.module';
 
     // Survey feature module
     SurveyModule,
+
+    // Hugging Face Image Example module
+    ImageExampleModule,
   ],
 })
 export class AppModule {}
