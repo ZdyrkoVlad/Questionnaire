@@ -30,6 +30,7 @@ export type QGEvalScores = Partial<Record<MetricId, MetricScore>>;
 
 export interface Question {
   id: string;
+  numericId?: number;
   title: string;
   category: string;
   description: string;

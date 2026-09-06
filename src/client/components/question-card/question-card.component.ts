@@ -38,6 +38,12 @@ export class QuestionCardComponent extends BaseComponent {
     const q = this.questionData;
     const ratedCount = this.getRatedCount();
 
+    // Determine the image ID corresponding to the question index
+    const rawId = q.numericId !== undefined ? q.numericId : parseInt(q.id, 10);
+    const imageId = !isNaN(rawId) ? rawId : 1;
+    const primaryUrl = `https://huggingface.co/datasets/SergCholovskyi/pipe-vqa/resolve/main/${imageId}.jpg`;
+    const fallbackUrl = `https://huggingface.co/datasets/SergCholovskyi/pipe-vqa/resolve/main/1.jpg`;
+
     this.className = 'block';
     this.innerHTML = `
       <div id="card-${q.id}" class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all">
@@ -53,22 +59,54 @@ export class QuestionCardComponent extends BaseComponent {
             </span>
           </div>
 
+          <!-- Image Context Block (Full Content Width) -->
+          <div class="mb-5 w-full">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-lime-500"></span>
+                Image Context
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">Dataset: SergCholovskyi/pipe-vqa</span>
+            </div>
+
+            <div class="w-full flex flex-col bg-slate-50 border border-slate-200/80 rounded-2xl p-3 sm:p-4 shadow-2xs">
+              <div class="relative overflow-hidden rounded-xl bg-white border border-slate-200/60 w-full min-h-[180px] max-h-72 flex items-center justify-center p-2">
+                <img 
+                  id="img-${q.id}"
+                  src="${primaryUrl}" 
+                  alt="Image context for question #${imageId}" 
+                  class="max-h-64 w-auto max-w-full object-contain rounded-lg transition-transform duration-200 hover:scale-[1.01]"
+                  loading="lazy"
+                  onerror="if(this.dataset.fallback !== 'true'){ this.dataset.fallback = 'true'; this.src = '${fallbackUrl}'; const a = document.getElementById('img-link-${q.id}'); if(a){ a.href = '${fallbackUrl}'; a.innerHTML = '<span>pipe-vqa/1.jpg (fallback)</span>'; } }"
+                />
+              </div>
+              <div class="mt-2 px-1 flex items-center justify-between">
+                <a 
+                  id="img-link-${q.id}"
+                  href="${primaryUrl}" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="text-xs font-medium text-slate-500 hover:text-slate-900 underline decoration-slate-300 underline-offset-2 flex items-center gap-1 transition-colors"
+                >
+                  <span>pipe-vqa/${imageId}.jpg</span>
+                  <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+                <span class="text-[10px] text-slate-400 font-medium">Hugging Face CDN</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Generated Question -->
           <p class="text-base sm:text-lg font-bold text-slate-950 leading-snug mb-3">
             "${this.escape(q.description)}"
           </p>
 
-          <!-- Image context (optional) + target answer -->
-          <div class="grid grid-cols-1 ${q.imageContext ? 'sm:grid-cols-2' : 'sm:grid-cols-1'} gap-2 mt-3">
-            ${q.imageContext ? `
-            <div class="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5">
-              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Image Context</p>
-              <p class="text-xs text-slate-700 leading-relaxed">${this.escape(q.imageContext)}</p>
-            </div>` : ''}
-            <div class="rounded-xl bg-lime-50 border border-lime-200 px-3.5 py-2.5">
-              <p class="text-[10px] font-bold uppercase tracking-wider text-lime-600 mb-1">Target Answer</p>
-              <p class="text-xs text-slate-700 font-semibold leading-relaxed">${this.escape(q.targetAnswer)}</p>
-            </div>
+          <!-- Target Answer pill -->
+          <div class="inline-flex items-center gap-2 rounded-xl bg-lime-50 border border-lime-200/80 px-3 py-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-lime-700">Target Answer:</span>
+            <span class="text-xs font-bold text-slate-800">${this.escape(q.targetAnswer)}</span>
           </div>
         </div>
 

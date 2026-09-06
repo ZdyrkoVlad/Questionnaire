@@ -1,222 +1,4 @@
-(() => {
-  var __defProp = Object.defineProperty;
-  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-  var __decorateClass = (decorators, target, key, kind) => {
-    var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;
-    for (var i = decorators.length - 1, decorator; i >= 0; i--)
-      if (decorator = decorators[i])
-        result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-    if (kind && result) __defProp(target, key, result);
-    return result;
-  };
-
-  // src/client/core/injectable.decorator.ts
-  var serviceRegistry = /* @__PURE__ */ new Map();
-  function Injectable(options = { providedIn: "root" }) {
-    return function(target) {
-      return target;
-    };
-  }
-  function inject(serviceClass) {
-    if (!serviceRegistry.has(serviceClass)) {
-      serviceRegistry.set(serviceClass, new serviceClass());
-    }
-    return serviceRegistry.get(serviceClass);
-  }
-
-  // src/client/core/component.decorator.ts
-  var BaseComponent = class extends HTMLElement {
-    isInitialized = false;
-    connectedCallback() {
-      this.render();
-      if (!this.isInitialized) {
-        this.isInitialized = true;
-        this.ngOnInit();
-      }
-    }
-    disconnectedCallback() {
-      this.ngOnDestroy();
-    }
-    /**
-     * Lifecycle hook invoked once the component is attached
-     */
-    ngOnInit() {
-    }
-    /**
-     * Lifecycle hook invoked when the component is destroyed/detached
-     */
-    ngOnDestroy() {
-    }
-    /**
-     * Renders or re-renders the component template
-     */
-    render() {
-    }
-    /**
-     * Dispatch custom event (Angular @Output equivalent)
-     */
-    emit(eventName, detail) {
-      this.dispatchEvent(
-        new CustomEvent(eventName, {
-          bubbles: true,
-          composed: true,
-          detail
-        })
-      );
-    }
-    /**
-     * Scoped query selector helper
-     */
-    $(selector) {
-      return this.querySelector(selector);
-    }
-    /**
-     * Scoped query selector all helper
-     */
-    $$(selector) {
-      return this.querySelectorAll(selector);
-    }
-  };
-  function Component(metadata) {
-    return function(target) {
-      if (!customElements.get(metadata.selector)) {
-        customElements.define(metadata.selector, target);
-      }
-      target.__metadata = metadata;
-      return target;
-    };
-  }
-
-  // src/client/services/survey.service.ts
-  var QGEVAL_METRICS = [
-    // Linguistic dimensions
-    { id: "fluency", label: "Fluency", labelUk: "\u041F\u0440\u0438\u0440\u043E\u0434\u043D\u0456\u0441\u0442\u044C", group: "linguistic", description: "How well-formed, grammatically correct, logically coherent and comprehensible the question is." },
-    { id: "clarity", label: "Clarity", labelUk: "\u0427\u0456\u0442\u043A\u0456\u0441\u0442\u044C", group: "linguistic", description: "Whether the question is stated clearly and unambiguously, avoiding over-generalisation or vagueness." },
-    { id: "conciseness", label: "Conciseness", labelUk: "\u041B\u0430\u043A\u043E\u043D\u0456\u0447\u043D\u0456\u0441\u0442\u044C", group: "linguistic", description: "Whether the question is concise and does not contain redundancy or duplicate information." },
-    // Task-oriented dimensions
-    { id: "relevance", label: "Relevance", labelUk: "\u0420\u0435\u043B\u0435\u0432\u0430\u043D\u0442\u043D\u0456\u0441\u0442\u044C", group: "task", description: "How relevant the question is to the provided image (domain) and dataset topic." },
-    { id: "consistency", label: "Consistency", labelUk: "\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u0430 \u0443\u0437\u0433\u043E\u0434\u0436\u0435\u043D\u0456\u0441\u0442\u044C", group: "task", description: "Whether the information stated in the question itself is consistent with the provided image." },
-    { id: "answerability", label: "Answerability", labelUk: "\u041C\u043E\u0436\u043B\u0438\u0432\u0456\u0441\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0441\u0442\u0438", group: "task", description: "Whether a clear and unambiguous answer can be found relying solely on the provided image." },
-    { id: "answer_consistency", label: "Answer Consistency", labelUk: "\u0423\u0437\u0433\u043E\u0434\u0436\u0435\u043D\u0456\u0441\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0456", group: "task", description: "Whether the generated question can be successfully answered using the target answer provided to the model." }
-  ];
-  var SurveyService = class {
-    questions = [];
-    /** Map<questionId, QGEvalScores> */
-    selectedScores = /* @__PURE__ */ new Map();
-    currentView = "survey";
-    cachedResults = null;
-    // Reactive listeners
-    viewListeners = /* @__PURE__ */ new Set();
-    scoreListeners = /* @__PURE__ */ new Set();
-    async getQuestions() {
-      if (this.questions.length > 0) {
-        return this.questions;
-      }
-      const res = await fetch("/api/survey/questions");
-      if (!res.ok) {
-        throw new Error(`Failed to load questionnaire items: ${res.statusText}`);
-      }
-      this.questions = await res.json();
-      return this.questions;
-    }
-    /** Set a single metric score for a question */
-    setMetricScore(questionId, metricId, score) {
-      const existing = this.selectedScores.get(questionId) ?? {};
-      this.selectedScores.set(questionId, { ...existing, [metricId]: score });
-      this.notifyScoreListeners();
-    }
-    /** Get all QGEval scores for a question */
-    getScores(questionId) {
-      return this.selectedScores.get(questionId) ?? {};
-    }
-    /** Get a single metric score for a question */
-    getMetricScore(questionId, metricId) {
-      return (this.selectedScores.get(questionId) ?? {})[metricId];
-    }
-    /** Returns true when all 7 metrics have been rated for the given question */
-    isQuestionFullyAnswered(questionId) {
-      const scores = this.selectedScores.get(questionId);
-      if (!scores) return false;
-      return QGEVAL_METRICS.every((m) => scores[m.id] !== void 0);
-    }
-    getSelectedScores() {
-      return new Map(this.selectedScores);
-    }
-    /** Number of questions where all 7 metrics have been rated */
-    getAnsweredCount() {
-      return this.questions.filter((q) => this.isQuestionFullyAnswered(q.id)).length;
-    }
-    getTotalQuestionsCount() {
-      return this.questions.length;
-    }
-    resetScores() {
-      this.selectedScores.clear();
-      this.notifyScoreListeners();
-    }
-    async submitSurvey(payload) {
-      const res = await fetch("/api/survey/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Submission failed");
-      }
-      const data = await res.json();
-      this.cachedResults = null;
-      return data;
-    }
-    async getResults() {
-      const res = await fetch("/api/survey/results");
-      if (!res.ok) {
-        throw new Error(`Failed to fetch results: ${res.statusText}`);
-      }
-      this.cachedResults = await res.json();
-      return this.cachedResults;
-    }
-    setView(view) {
-      this.currentView = view;
-      this.viewListeners.forEach((fn) => fn(view));
-    }
-    getView() {
-      return this.currentView;
-    }
-    onViewChange(fn) {
-      this.viewListeners.add(fn);
-      return () => this.viewListeners.delete(fn);
-    }
-    onScoreChange(fn) {
-      this.scoreListeners.add(fn);
-      return () => this.scoreListeners.delete(fn);
-    }
-    notifyScoreListeners() {
-      const copy = new Map(this.selectedScores);
-      this.scoreListeners.forEach((fn) => fn(copy));
-    }
-  };
-  SurveyService = __decorateClass([
-    Injectable()
-  ], SurveyService);
-
-  // src/client/components/header/header.component.ts
-  var HeaderComponent = class extends BaseComponent {
-    surveyService = inject(SurveyService);
-    unsubscribeView;
-    ngOnInit() {
-      this.unsubscribeView = this.surveyService.onViewChange(() => {
-        this.updateActiveTabs();
-      });
-      this.bindEvents();
-      this.updateActiveTabs();
-    }
-    ngOnDestroy() {
-      if (this.unsubscribeView) {
-        this.unsubscribeView();
-      }
-    }
-    render() {
-      this.innerHTML = `
+(()=>{var H=Object.defineProperty;var j=Object.getOwnPropertyDescriptor;var d=(n,e,t,s)=>{for(var r=s>1?void 0:s?j(e,t):e,i=n.length-1,l;i>=0;i--)(l=n[i])&&(r=(s?l(e,t,r):l(r))||r);return s&&r&&H(e,t,r),r};var T=new Map;function A(n={providedIn:"root"}){return function(e){return e}}function u(n){return T.has(n)||T.set(n,new n),T.get(n)}var c=class extends HTMLElement{isInitialized=!1;connectedCallback(){this.render(),this.isInitialized||(this.isInitialized=!0,this.ngOnInit())}disconnectedCallback(){this.ngOnDestroy()}ngOnInit(){}ngOnDestroy(){}render(){}emit(e,t){this.dispatchEvent(new CustomEvent(e,{bubbles:!0,composed:!0,detail:t}))}$(e){return this.querySelector(e)}$$(e){return this.querySelectorAll(e)}};function p(n){return function(e){return customElements.get(n.selector)||customElements.define(n.selector,e),e.__metadata=n,e}}var b=[{id:"fluency",label:"Fluency",labelUk:"\u041F\u0440\u0438\u0440\u043E\u0434\u043D\u0456\u0441\u0442\u044C",group:"linguistic",description:"How well-formed, grammatically correct, logically coherent and comprehensible the question is."},{id:"clarity",label:"Clarity",labelUk:"\u0427\u0456\u0442\u043A\u0456\u0441\u0442\u044C",group:"linguistic",description:"Whether the question is stated clearly and unambiguously, avoiding over-generalisation or vagueness."},{id:"conciseness",label:"Conciseness",labelUk:"\u041B\u0430\u043A\u043E\u043D\u0456\u0447\u043D\u0456\u0441\u0442\u044C",group:"linguistic",description:"Whether the question is concise and does not contain redundancy or duplicate information."},{id:"relevance",label:"Relevance",labelUk:"\u0420\u0435\u043B\u0435\u0432\u0430\u043D\u0442\u043D\u0456\u0441\u0442\u044C",group:"task",description:"How relevant the question is to the provided image (domain) and dataset topic."},{id:"consistency",label:"Consistency",labelUk:"\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u0430 \u0443\u0437\u0433\u043E\u0434\u0436\u0435\u043D\u0456\u0441\u0442\u044C",group:"task",description:"Whether the information stated in the question itself is consistent with the provided image."},{id:"answerability",label:"Answerability",labelUk:"\u041C\u043E\u0436\u043B\u0438\u0432\u0456\u0441\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0441\u0442\u0438",group:"task",description:"Whether a clear and unambiguous answer can be found relying solely on the provided image."},{id:"answer_consistency",label:"Answer Consistency",labelUk:"\u0423\u0437\u0433\u043E\u0434\u0436\u0435\u043D\u0456\u0441\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0456",group:"task",description:"Whether the generated question can be successfully answered using the target answer provided to the model."}];var o=class{questions=[];selectedScores=new Map;currentView="survey";cachedResults=null;viewListeners=new Set;scoreListeners=new Set;async getQuestions(){if(this.questions.length>0)return this.questions;let e=await fetch("/api/survey/questions");if(!e.ok)throw new Error(`Failed to load questionnaire items: ${e.statusText}`);return this.questions=await e.json(),this.questions}setMetricScore(e,t,s){let r=this.selectedScores.get(e)??{};this.selectedScores.set(e,{...r,[t]:s}),this.notifyScoreListeners()}getScores(e){return this.selectedScores.get(e)??{}}getMetricScore(e,t){return(this.selectedScores.get(e)??{})[t]}isQuestionFullyAnswered(e){let t=this.selectedScores.get(e);return t?b.every(s=>t[s.id]!==void 0):!1}getSelectedScores(){return new Map(this.selectedScores)}getAnsweredCount(){return this.questions.filter(e=>this.isQuestionFullyAnswered(e.id)).length}getTotalQuestionsCount(){return this.questions.length}resetScores(){this.selectedScores.clear(),this.notifyScoreListeners()}async submitSurvey(e){let t=await fetch("/api/survey/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(e)});if(!t.ok){let r=await t.json();throw new Error(r.message||"Submission failed")}let s=await t.json();return this.cachedResults=null,s}async getResults(){let e=await fetch("/api/survey/results");if(!e.ok)throw new Error(`Failed to fetch results: ${e.statusText}`);return this.cachedResults=await e.json(),this.cachedResults}setView(e){this.currentView=e,this.viewListeners.forEach(t=>t(e))}getView(){return this.currentView}onViewChange(e){return this.viewListeners.add(e),()=>this.viewListeners.delete(e)}onScoreChange(e){return this.scoreListeners.add(e),()=>this.scoreListeners.delete(e)}notifyScoreListeners(){let e=new Map(this.selectedScores);this.scoreListeners.forEach(t=>t(e))}};o=d([A()],o);var S=class extends c{surveyService=u(o);unsubscribeView;ngOnInit(){this.unsubscribeView=this.surveyService.onViewChange(()=>{this.updateActiveTabs()}),this.bindEvents(),this.updateActiveTabs()}ngOnDestroy(){this.unsubscribeView&&this.unsubscribeView()}render(){this.innerHTML=`
       <header class="border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-30">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div class="flex items-center gap-3">
@@ -249,100 +31,20 @@
           </div>
         </div>
       </header>
-    `;
-    }
-    bindEvents() {
-      const surveyBtn = this.$("#nav-survey-btn");
-      const resultsBtn = this.$("#nav-results-btn");
-      surveyBtn?.addEventListener("click", () => {
-        this.surveyService.setView("survey");
-      });
-      resultsBtn?.addEventListener("click", () => {
-        this.surveyService.setView("results");
-      });
-    }
-    updateActiveTabs() {
-      const currentView = this.surveyService.getView();
-      const surveyBtn = this.$("#nav-survey-btn");
-      const resultsBtn = this.$("#nav-results-btn");
-      if (!surveyBtn || !resultsBtn) return;
-      if (currentView === "survey") {
-        surveyBtn.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-950 text-white transition-all shadow-sm";
-        resultsBtn.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-950 hover:bg-slate-100 transition-all";
-      } else {
-        surveyBtn.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-950 hover:bg-slate-100 transition-all";
-        resultsBtn.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-950 text-white transition-all shadow-sm";
-      }
-    }
-  };
-  HeaderComponent = __decorateClass([
-    Component({
-      selector: "app-header"
-    })
-  ], HeaderComponent);
-
-  // src/client/components/rating-scale/rating-scale.component.ts
-  var RatingScaleComponent = class extends BaseComponent {
-    surveyService = inject(SurveyService);
-    questionId = "";
-    minLabel = "";
-    maxLabel = "";
-    selectedScore = null;
-    unsubscribeScores;
-    // Angular @Input equivalent setter
-    setProperties(props) {
-      this.questionId = props.questionId;
-      this.minLabel = props.minLabel;
-      this.maxLabel = props.maxLabel;
-      this.selectedScore = props.selectedScore ?? null;
-      this.render();
-      this.bindEvents();
-    }
-    ngOnInit() {
-      if (!this.questionId) {
-        this.questionId = this.getAttribute("question-id") || "";
-        this.minLabel = this.getAttribute("min-label") || "Low";
-        this.maxLabel = this.getAttribute("max-label") || "High";
-        const stored = this.surveyService.getScore(this.questionId);
-        if (stored !== void 0) {
-          this.selectedScore = stored;
-        }
-        this.render();
-        this.bindEvents();
-      }
-      this.unsubscribeScores = this.surveyService.onScoreChange((scores) => {
-        const score = scores.get(this.questionId) ?? null;
-        if (score !== this.selectedScore) {
-          this.selectedScore = score;
-          this.updateButtonStates();
-        }
-      });
-    }
-    ngOnDestroy() {
-      if (this.unsubscribeScores) {
-        this.unsubscribeScores();
-      }
-    }
-    render() {
-      let buttonsHtml = "";
-      for (let s = 1; s <= 10; s++) {
-        const isActive = this.selectedScore === s;
-        buttonsHtml += `
+    `}bindEvents(){let e=this.$("#nav-survey-btn"),t=this.$("#nav-results-btn");e?.addEventListener("click",()=>{this.surveyService.setView("survey")}),t?.addEventListener("click",()=>{this.surveyService.setView("results")})}updateActiveTabs(){let e=this.surveyService.getView(),t=this.$("#nav-survey-btn"),s=this.$("#nav-results-btn");!t||!s||(e==="survey"?(t.className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-950 text-white transition-all shadow-sm",s.className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-950 hover:bg-slate-100 transition-all"):(t.className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-950 hover:bg-slate-100 transition-all",s.className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-950 text-white transition-all shadow-sm"))}};S=d([p({selector:"app-header"})],S);var k=class extends c{surveyService=u(o);questionId="";minLabel="";maxLabel="";selectedScore=null;unsubscribeScores;setProperties(e){this.questionId=e.questionId,this.minLabel=e.minLabel,this.maxLabel=e.maxLabel,this.selectedScore=e.selectedScore??null,this.render(),this.bindEvents()}ngOnInit(){if(!this.questionId){this.questionId=this.getAttribute("question-id")||"",this.minLabel=this.getAttribute("min-label")||"Low",this.maxLabel=this.getAttribute("max-label")||"High";let e=this.surveyService.getScore(this.questionId);e!==void 0&&(this.selectedScore=e),this.render(),this.bindEvents()}this.unsubscribeScores=this.surveyService.onScoreChange(e=>{let t=e.get(this.questionId)??null;t!==this.selectedScore&&(this.selectedScore=t,this.updateButtonStates())})}ngOnDestroy(){this.unsubscribeScores&&this.unsubscribeScores()}render(){let e="";for(let t=1;t<=10;t++){let s=this.selectedScore===t;e+=`
         <button 
           type="button" 
-          data-score="${s}"
-          aria-label="Score ${s} out of 10"
-          aria-pressed="${isActive ? "true" : "false"}"
-          class="score-btn ${isActive ? "active" : ""}"
+          data-score="${t}"
+          aria-label="Score ${t} out of 10"
+          aria-pressed="${s?"true":"false"}"
+          class="score-btn ${s?"active":""}"
         >
-          <span class="text-base">${s}</span>
+          <span class="text-base">${t}</span>
         </button>
-      `;
-      }
-      this.innerHTML = `
+      `}this.innerHTML=`
       <div>
         <div class="grid grid-cols-5 sm:grid-cols-10 gap-2 sm:gap-2.5">
-          ${buttonsHtml}
+          ${e}
         </div>
 
         <div class="flex items-center justify-between text-xs text-slate-500 font-medium mt-3 px-1">
@@ -356,91 +58,16 @@
           </span>
         </div>
       </div>
-    `;
-    }
-    bindEvents() {
-      const buttons = this.$$(".score-btn");
-      buttons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const score = parseInt(btn.getAttribute("data-score") || "0", 10);
-          if (score >= 1 && score <= 10) {
-            this.surveyService.setScore(this.questionId, score);
-            this.emit("scoreSelected", { questionId: this.questionId, score });
-          }
-        });
-      });
-    }
-    updateButtonStates() {
-      const buttons = this.$$(".score-btn");
-      buttons.forEach((btn) => {
-        const score = parseInt(btn.getAttribute("data-score") || "0", 10);
-        if (score === this.selectedScore) {
-          btn.classList.add("active");
-          btn.setAttribute("aria-pressed", "true");
-        } else {
-          btn.classList.remove("active");
-          btn.setAttribute("aria-pressed", "false");
-        }
-      });
-    }
-    escape(str) {
-      return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
-    }
-  };
-  RatingScaleComponent = __decorateClass([
-    Component({
-      selector: "app-rating-scale"
-    })
-  ], RatingScaleComponent);
-
-  // src/client/components/qgeval-metric-row/qgeval-metric-row.component.ts
-  var QGEvalMetricRowComponent = class extends BaseComponent {
-    surveyService = inject(SurveyService);
-    questionId = "";
-    metricId = "fluency";
-    label = "";
-    labelUk = "";
-    description = "";
-    selectedScore = null;
-    unsubscribe;
-    setProperties(props) {
-      this.questionId = props.questionId;
-      this.metricId = props.metricId;
-      this.label = props.label;
-      this.labelUk = props.labelUk;
-      this.description = props.description;
-      this.selectedScore = this.surveyService.getMetricScore(this.questionId, this.metricId) ?? null;
-      this.render();
-      this.bindEvents();
-    }
-    ngOnInit() {
-      this.unsubscribe = this.surveyService.onScoreChange(() => {
-        const score = this.surveyService.getMetricScore(this.questionId, this.metricId) ?? null;
-        if (score !== this.selectedScore) {
-          this.selectedScore = score;
-          this.updateButtonStates();
-        }
-      });
-    }
-    ngOnDestroy() {
-      this.unsubscribe?.();
-    }
-    render() {
-      const buttons = [1, 2, 3].map((s) => {
-        const isActive = this.selectedScore === s;
-        const colorClass = this.scoreColorClass(s, isActive);
-        return `
+    `}bindEvents(){this.$$(".score-btn").forEach(t=>{t.addEventListener("click",()=>{let s=parseInt(t.getAttribute("data-score")||"0",10);s>=1&&s<=10&&(this.surveyService.setScore(this.questionId,s),this.emit("scoreSelected",{questionId:this.questionId,score:s}))})})}updateButtonStates(){this.$$(".score-btn").forEach(t=>{parseInt(t.getAttribute("data-score")||"0",10)===this.selectedScore?(t.classList.add("active"),t.setAttribute("aria-pressed","true")):(t.classList.remove("active"),t.setAttribute("aria-pressed","false"))})}escape(e){return e?e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}};k=d([p({selector:"app-rating-scale"})],k);var $=class extends c{surveyService=u(o);questionId="";metricId="fluency";label="";labelUk="";description="";selectedScore=null;unsubscribe;setProperties(e){this.questionId=e.questionId,this.metricId=e.metricId,this.label=e.label,this.labelUk=e.labelUk,this.description=e.description,this.selectedScore=this.surveyService.getMetricScore(this.questionId,this.metricId)??null,this.render(),this.bindEvents()}ngOnInit(){this.unsubscribe=this.surveyService.onScoreChange(()=>{let e=this.surveyService.getMetricScore(this.questionId,this.metricId)??null;e!==this.selectedScore&&(this.selectedScore=e,this.updateButtonStates())})}ngOnDestroy(){this.unsubscribe?.()}render(){let e=[1,2,3].map(t=>{let s=this.selectedScore===t,r=this.scoreColorClass(t,s);return`
           <button
             type="button"
-            data-score="${s}"
-            aria-label="Score ${s} out of 3"
-            aria-pressed="${isActive}"
-            id="metric-btn-${this.questionId}-${this.metricId}-${s}"
-            class="metric-score-btn ${colorClass} w-10 h-10 rounded-xl font-bold text-sm transition-all duration-150 border-2 focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer select-none"
-          >${s}</button>
-        `;
-      }).join("");
-      this.innerHTML = `
+            data-score="${t}"
+            aria-label="Score ${t} out of 3"
+            aria-pressed="${s}"
+            id="metric-btn-${this.questionId}-${this.metricId}-${t}"
+            class="metric-score-btn ${r} w-10 h-10 rounded-xl font-bold text-sm transition-all duration-150 border-2 focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer select-none"
+          >${t}</button>
+        `}).join("");this.innerHTML=`
       <div class="flex items-center gap-3 py-2.5">
         <!-- Label column -->
         <div class="flex-1 min-w-0">
@@ -461,125 +88,71 @@
 
         <!-- Score buttons column -->
         <div class="flex items-center gap-1.5 shrink-0">
-          ${buttons}
+          ${e}
         </div>
       </div>
-    `;
-    }
-    bindEvents() {
-      const btns = this.$$(".metric-score-btn");
-      btns.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const score = parseInt(btn.getAttribute("data-score") || "0", 10);
-          if (score >= 1 && score <= 3) {
-            this.surveyService.setMetricScore(this.questionId, this.metricId, score);
-            this.emit("metricScored", { questionId: this.questionId, metricId: this.metricId, score });
-          }
-        });
-      });
-    }
-    updateButtonStates() {
-      const btns = this.$$(".metric-score-btn");
-      btns.forEach((btn) => {
-        const score = parseInt(btn.getAttribute("data-score") || "0", 10);
-        const isActive = score === this.selectedScore;
-        btn.className = `metric-score-btn ${this.scoreColorClass(score, isActive)} w-10 h-10 rounded-xl font-bold text-sm transition-all duration-150 border-2 focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer select-none`;
-        btn.setAttribute("aria-pressed", String(isActive));
-      });
-    }
-    /**
-     * Returns Tailwind classes for each score button based on value and active state.
-     * 1 = rose/red  2 = amber/yellow  3 = green/lime
-     */
-    scoreColorClass(score, active) {
-      if (active) {
-        switch (score) {
-          case 1:
-            return "bg-rose-500 border-rose-600 text-white shadow-sm shadow-rose-200 ring-rose-400";
-          case 2:
-            return "bg-amber-400 border-amber-500 text-white shadow-sm shadow-amber-200 ring-amber-400";
-          case 3:
-            return "bg-lime-500 border-lime-600 text-white shadow-sm shadow-lime-200 ring-lime-400";
-        }
-      }
-      switch (score) {
-        case 1:
-          return "bg-white border-slate-200 text-slate-500 hover:border-rose-300 hover:text-rose-500 hover:bg-rose-50 ring-rose-400";
-        case 2:
-          return "bg-white border-slate-200 text-slate-500 hover:border-amber-300 hover:text-amber-500 hover:bg-amber-50 ring-amber-400";
-        case 3:
-          return "bg-white border-slate-200 text-slate-500 hover:border-lime-400 hover:text-lime-600 hover:bg-lime-50 ring-lime-400";
-      }
-    }
-    escape(str) {
-      return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
-    }
-  };
-  QGEvalMetricRowComponent = __decorateClass([
-    Component({
-      selector: "app-qgeval-metric-row"
-    })
-  ], QGEvalMetricRowComponent);
-
-  // src/client/components/question-card/question-card.component.ts
-  var QuestionCardComponent = class extends BaseComponent {
-    surveyService = inject(SurveyService);
-    questionData = null;
-    index = 0;
-    total = 0;
-    unsubscribeScores;
-    setQuestion(question, index, total) {
-      this.questionData = question;
-      this.index = index;
-      this.total = total;
-      this.render();
-      this.initMetricRows();
-    }
-    ngOnInit() {
-      this.unsubscribeScores = this.surveyService.onScoreChange(() => {
-        if (this.questionData) {
-          this.updateProgressBadge();
-        }
-      });
-    }
-    ngOnDestroy() {
-      this.unsubscribeScores?.();
-    }
-    render() {
-      if (!this.questionData) return;
-      const q = this.questionData;
-      const ratedCount = this.getRatedCount();
-      this.className = "block";
-      this.innerHTML = `
-      <div id="card-${q.id}" class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all">
+    `}bindEvents(){this.$$(".metric-score-btn").forEach(t=>{t.addEventListener("click",()=>{let s=parseInt(t.getAttribute("data-score")||"0",10);s>=1&&s<=3&&(this.surveyService.setMetricScore(this.questionId,this.metricId,s),this.emit("metricScored",{questionId:this.questionId,metricId:this.metricId,score:s}))})})}updateButtonStates(){this.$$(".metric-score-btn").forEach(t=>{let s=parseInt(t.getAttribute("data-score")||"0",10),r=s===this.selectedScore;t.className=`metric-score-btn ${this.scoreColorClass(s,r)} w-10 h-10 rounded-xl font-bold text-sm transition-all duration-150 border-2 focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer select-none`,t.setAttribute("aria-pressed",String(r))})}scoreColorClass(e,t){if(t)switch(e){case 1:return"bg-rose-500 border-rose-600 text-white shadow-sm shadow-rose-200 ring-rose-400";case 2:return"bg-amber-400 border-amber-500 text-white shadow-sm shadow-amber-200 ring-amber-400";case 3:return"bg-lime-500 border-lime-600 text-white shadow-sm shadow-lime-200 ring-lime-400"}switch(e){case 1:return"bg-white border-slate-200 text-slate-500 hover:border-rose-300 hover:text-rose-500 hover:bg-rose-50 ring-rose-400";case 2:return"bg-white border-slate-200 text-slate-500 hover:border-amber-300 hover:text-amber-500 hover:bg-amber-50 ring-amber-400";case 3:return"bg-white border-slate-200 text-slate-500 hover:border-lime-400 hover:text-lime-600 hover:bg-lime-50 ring-lime-400"}}escape(e){return e?e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}};$=d([p({selector:"app-qgeval-metric-row"})],$);var L=class extends c{surveyService=u(o);questionData=null;index=0;total=0;unsubscribeScores;setQuestion(e,t,s){this.questionData=e,this.index=t,this.total=s,this.render(),this.initMetricRows()}ngOnInit(){this.unsubscribeScores=this.surveyService.onScoreChange(()=>{this.questionData&&this.updateProgressBadge()})}ngOnDestroy(){this.unsubscribeScores?.()}render(){if(!this.questionData)return;let e=this.questionData,t=this.getRatedCount(),s=e.numericId!==void 0?e.numericId:parseInt(e.id,10),r=isNaN(s)?1:s,i=`https://huggingface.co/datasets/SergCholovskyi/pipe-vqa/resolve/main/${r}.jpg`,l="https://huggingface.co/datasets/SergCholovskyi/pipe-vqa/resolve/main/1.jpg";this.className="block",this.innerHTML=`
+      <div id="card-${e.id}" class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all">
 
         <!-- Card Header -->
         <div class="px-6 pt-6 pb-4 border-b border-slate-100">
           <div class="flex items-start justify-between gap-3 mb-3">
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider shrink-0">
-              Q${this.index + 1} / ${this.total} &nbsp;\xB7&nbsp; ${this.escape(q.category)}
+              Q${this.index+1} / ${this.total} &nbsp;\xB7&nbsp; ${this.escape(e.category)}
             </span>
-            <span id="badge-${q.id}" class="text-xs font-semibold shrink-0">
-              ${this.badgeHtml(ratedCount)}
+            <span id="badge-${e.id}" class="text-xs font-semibold shrink-0">
+              ${this.badgeHtml(t)}
             </span>
+          </div>
+
+          <!-- Image Context Block (Full Content Width) -->
+          <div class="mb-5 w-full">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-lime-500"></span>
+                Image Context
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">Dataset: SergCholovskyi/pipe-vqa</span>
+            </div>
+
+            <div class="w-full flex flex-col bg-slate-50 border border-slate-200/80 rounded-2xl p-3 sm:p-4 shadow-2xs">
+              <div class="relative overflow-hidden rounded-xl bg-white border border-slate-200/60 w-full min-h-[180px] max-h-72 flex items-center justify-center p-2">
+                <img 
+                  id="img-${e.id}"
+                  src="${i}" 
+                  alt="Image context for question #${r}" 
+                  class="max-h-64 w-auto max-w-full object-contain rounded-lg transition-transform duration-200 hover:scale-[1.01]"
+                  loading="lazy"
+                  onerror="if(this.dataset.fallback !== 'true'){ this.dataset.fallback = 'true'; this.src = '${l}'; const a = document.getElementById('img-link-${e.id}'); if(a){ a.href = '${l}'; a.innerHTML = '<span>pipe-vqa/1.jpg (fallback)</span>'; } }"
+                />
+              </div>
+              <div class="mt-2 px-1 flex items-center justify-between">
+                <a 
+                  id="img-link-${e.id}"
+                  href="${i}" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="text-xs font-medium text-slate-500 hover:text-slate-900 underline decoration-slate-300 underline-offset-2 flex items-center gap-1 transition-colors"
+                >
+                  <span>pipe-vqa/${r}.jpg</span>
+                  <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+                <span class="text-[10px] text-slate-400 font-medium">Hugging Face CDN</span>
+              </div>
+            </div>
           </div>
 
           <!-- Generated Question -->
           <p class="text-base sm:text-lg font-bold text-slate-950 leading-snug mb-3">
-            "${this.escape(q.description)}"
+            "${this.escape(e.description)}"
           </p>
 
-          <!-- Image context (optional) + target answer -->
-          <div class="grid grid-cols-1 ${q.imageContext ? "sm:grid-cols-2" : "sm:grid-cols-1"} gap-2 mt-3">
-            ${q.imageContext ? `
-            <div class="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5">
-              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Image Context</p>
-              <p class="text-xs text-slate-700 leading-relaxed">${this.escape(q.imageContext)}</p>
-            </div>` : ""}
-            <div class="rounded-xl bg-lime-50 border border-lime-200 px-3.5 py-2.5">
-              <p class="text-[10px] font-bold uppercase tracking-wider text-lime-600 mb-1">Target Answer</p>
-              <p class="text-xs text-slate-700 font-semibold leading-relaxed">${this.escape(q.targetAnswer)}</p>
-            </div>
+          <!-- Target Answer pill -->
+          <div class="inline-flex items-center gap-2 rounded-xl bg-lime-50 border border-lime-200/80 px-3 py-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-lime-700">Target Answer:</span>
+            <span class="text-xs font-bold text-slate-800">${this.escape(e.targetAnswer)}</span>
           </div>
         </div>
 
@@ -609,7 +182,7 @@
               <span class="w-1 h-3 bg-slate-400 rounded-full inline-block"></span>
               Linguistic Dimensions
             </p>
-            <div id="linguistic-rows-${q.id}" class="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden bg-white"></div>
+            <div id="linguistic-rows-${e.id}" class="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden bg-white"></div>
           </div>
 
           <!-- Task-oriented dimensions group -->
@@ -618,110 +191,15 @@
               <span class="w-1 h-3 bg-lime-500 rounded-full inline-block"></span>
               Task-Oriented Dimensions
             </p>
-            <div id="task-rows-${q.id}" class="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden bg-white"></div>
+            <div id="task-rows-${e.id}" class="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden bg-white"></div>
           </div>
 
         </div>
       </div>
-    `;
-    }
-    initMetricRows() {
-      if (!this.questionData) return;
-      const q = this.questionData;
-      const linguisticContainer = this.$(`#linguistic-rows-${q.id}`);
-      const taskContainer = this.$(`#task-rows-${q.id}`);
-      QGEVAL_METRICS.forEach((metric) => {
-        const row = document.createElement("app-qgeval-metric-row");
-        row.id = `row-${q.id}-${metric.id}`;
-        row.className = "block px-4";
-        const container = metric.group === "linguistic" ? linguisticContainer : taskContainer;
-        container?.appendChild(row);
-        row.setProperties({
-          questionId: q.id,
-          metricId: metric.id,
-          label: metric.label,
-          labelUk: metric.labelUk,
-          description: metric.description
-        });
-      });
-    }
-    getRatedCount() {
-      if (!this.questionData) return 0;
-      const scores = this.surveyService.getScores(this.questionData.id);
-      return QGEVAL_METRICS.filter((m) => scores[m.id] !== void 0).length;
-    }
-    updateProgressBadge() {
-      if (!this.questionData) return;
-      const badge = this.$(`#badge-${this.questionData.id}`);
-      if (badge) {
-        badge.innerHTML = this.badgeHtml(this.getRatedCount());
-      }
-    }
-    badgeHtml(ratedCount) {
-      const total = QGEVAL_METRICS.length;
-      const allDone = ratedCount === total;
-      if (allDone) {
-        return `<span class="inline-flex items-center gap-1 text-lime-700 font-bold"><span class="w-2 h-2 rounded-full bg-lime-500"></span>All ${total} rated \u2713</span>`;
-      }
-      if (ratedCount > 0) {
-        return `<span class="inline-flex items-center gap-1 text-amber-600 font-semibold"><span class="w-2 h-2 rounded-full bg-amber-400"></span>${ratedCount}/${total} rated</span>`;
-      }
-      return `<span class="text-slate-400">Not rated yet</span>`;
-    }
-    escape(str) {
-      return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
-    }
-  };
-  QuestionCardComponent = __decorateClass([
-    Component({
-      selector: "app-question-card"
-    })
-  ], QuestionCardComponent);
-
-  // src/client/components/survey-form/survey-form.component.ts
-  var SurveyFormComponent = class extends BaseComponent {
-    surveyService = inject(SurveyService);
-    questions = [];
-    currentIndex = 0;
-    isLoading = true;
-    isSubmitting = false;
-    errorMessage = "";
-    unsubscribeScores;
-    async ngOnInit() {
-      this.unsubscribeScores = this.surveyService.onScoreChange(() => {
-        this.updateProgressBar();
-        this.updateButtonStates();
-        this.updateCardBadge();
-      });
-      try {
-        this.questions = await this.surveyService.getQuestions();
-        this.isLoading = false;
-        this.currentIndex = 0;
-        this.render();
-        this.mountCurrentCard();
-        this.bindNavEvents();
-        this.updateProgressBar();
-        this.updateButtonStates();
-      } catch (err) {
-        this.isLoading = false;
-        this.errorMessage = err.message || "Error loading questionnaire";
-        this.renderError();
-      }
-    }
-    ngOnDestroy() {
-      this.unsubscribeScores?.();
-    }
-    // ─── Shell render ─────────────────────────────────────────────────────────
-    render() {
-      if (this.isLoading) {
-        this.innerHTML = `
+    `}initMetricRows(){if(!this.questionData)return;let e=this.questionData,t=this.$(`#linguistic-rows-${e.id}`),s=this.$(`#task-rows-${e.id}`);b.forEach(r=>{let i=document.createElement("app-qgeval-metric-row");i.id=`row-${e.id}-${r.id}`,i.className="block px-4",(r.group==="linguistic"?t:s)?.appendChild(i),i.setProperties({questionId:e.id,metricId:r.id,label:r.label,labelUk:r.labelUk,description:r.description})})}getRatedCount(){if(!this.questionData)return 0;let e=this.surveyService.getScores(this.questionData.id);return b.filter(t=>e[t.id]!==void 0).length}updateProgressBadge(){if(!this.questionData)return;let e=this.$(`#badge-${this.questionData.id}`);e&&(e.innerHTML=this.badgeHtml(this.getRatedCount()))}badgeHtml(e){let t=b.length;return e===t?`<span class="inline-flex items-center gap-1 text-lime-700 font-bold"><span class="w-2 h-2 rounded-full bg-lime-500"></span>All ${t} rated \u2713</span>`:e>0?`<span class="inline-flex items-center gap-1 text-amber-600 font-semibold"><span class="w-2 h-2 rounded-full bg-amber-400"></span>${e}/${t} rated</span>`:'<span class="text-slate-400">Not rated yet</span>'}escape(e){return e?e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}};L=d([p({selector:"app-question-card"})],L);var M=class extends c{surveyService=u(o);questions=[];currentIndex=0;isLoading=!0;isSubmitting=!1;errorMessage="";unsubscribeScores;async ngOnInit(){this.unsubscribeScores=this.surveyService.onScoreChange(()=>{this.updateProgressBar(),this.updateButtonStates(),this.updateCardBadge()});try{this.questions=await this.surveyService.getQuestions(),this.isLoading=!1,this.currentIndex=0,this.render(),this.mountCurrentCard(),this.bindNavEvents(),this.updateProgressBar(),this.updateButtonStates()}catch(e){this.isLoading=!1,this.errorMessage=e.message||"Error loading questionnaire",this.renderError()}}ngOnDestroy(){this.unsubscribeScores?.()}render(){if(this.isLoading){this.innerHTML=`
         <div class="p-10 text-center bg-white rounded-2xl border border-slate-200 shadow-sm animate-pulse">
           <p class="text-slate-500 text-sm font-medium">Loading questionnaire items\u2026</p>
-        </div>`;
-        return;
-      }
-      const total = this.questions.length;
-      this.innerHTML = `
+        </div>`;return}let e=this.questions.length;this.innerHTML=`
       <div>
         <!-- Header -->
         <div class="mb-6">
@@ -733,7 +211,7 @@
             VQA Question Quality Evaluation
           </h1>
           <p class="mt-2 text-slate-600 text-sm sm:text-base leading-relaxed">
-            Rate all <span class="font-semibold text-slate-900">${QGEVAL_METRICS.length} QGEval metrics</span>
+            Rate all <span class="font-semibold text-slate-900">${b.length} QGEval metrics</span>
             (scale 1\u20133) for each generated question. Use <strong>Next</strong> to proceed or <strong>Finish</strong> to submit at any time.
           </p>
         </div>
@@ -743,20 +221,20 @@
           <div class="flex items-center justify-between text-xs font-medium text-slate-500 mb-3">
             <span>Question Progress</span>
             <span id="progress-text" class="font-semibold text-slate-900">
-              Question 1 of ${total}
+              Question 1 of ${e}
             </span>
           </div>
 
           <!-- Step dots -->
           <div class="flex items-center gap-1.5 mb-3 flex-wrap">
-            ${this.questions.map((_, i) => `
+            ${this.questions.map((t,s)=>`
                 <button
                   type="button"
-                  data-step="${i}"
-                  id="step-dot-${i}"
-                  aria-label="Go to question ${i + 1}"
+                  data-step="${s}"
+                  id="step-dot-${s}"
+                  aria-label="Go to question ${s+1}"
                   class="step-dot w-7 h-7 rounded-lg text-[10px] font-bold border-2 transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-lime-400"
-                >${i + 1}</button>
+                >${s+1}</button>
               `).join("")}
           </div>
 
@@ -765,7 +243,7 @@
             <div id="progress-fill" class="bg-lime-500 h-1.5 rounded-full transition-all duration-300" style="width:0%;"></div>
           </div>
           <p class="text-[10px] text-slate-400 mt-1.5">
-            <span id="progress-sub">0 of ${total} questions fully rated (all ${QGEVAL_METRICS.length} metrics each)</span>
+            <span id="progress-sub">0 of ${e} questions fully rated (all ${b.length} metrics each)</span>
           </p>
         </div>
 
@@ -850,293 +328,79 @@
 
         </div>
       </div>
-    `;
-    }
-    renderError() {
-      this.innerHTML = `
+    `}renderError(){this.innerHTML=`
       <div class="p-6 bg-rose-50 border border-rose-200 rounded-2xl text-center">
         <p class="text-rose-700 font-semibold text-sm">${this.escape(this.errorMessage)}</p>
         <button id="retry-btn" class="mt-3 px-4 py-2 bg-rose-600 text-white text-xs rounded-xl font-bold">Retry</button>
-      </div>`;
-      this.$("#retry-btn")?.addEventListener("click", () => location.reload());
-    }
-    // ─── Mount the card for the current question ──────────────────────────────
-    mountCurrentCard() {
-      const slot = this.$("#card-slot");
-      if (!slot) return;
-      slot.innerHTML = "";
-      const q = this.questions[this.currentIndex];
-      if (!q) return;
-      const card = document.createElement("app-question-card");
-      card.id = `qcard-${q.id}`;
-      slot.appendChild(card);
-      card.setQuestion(q, this.currentIndex, this.questions.length);
-    }
-    // ─── Event bindings ───────────────────────────────────────────────────────
-    bindNavEvents() {
-      this.$$(".step-dot").forEach((dot) => {
-        dot.addEventListener("click", () => {
-          const idx = parseInt(dot.getAttribute("data-step") || "0", 10);
-          this.navigateTo(idx);
-        });
-      });
-      this.$("#prev-btn")?.addEventListener("click", () => {
-        if (this.currentIndex > 0) this.navigateTo(this.currentIndex - 1);
-      });
-      this.$("#next-btn")?.addEventListener("click", () => {
-        if (this.currentIndex < this.questions.length - 1) {
-          this.navigateTo(this.currentIndex + 1);
-        }
-      });
-      this.$("#finish-btn")?.addEventListener("click", () => this.handleFinish());
-    }
-    navigateTo(index) {
-      if (index < 0 || index >= this.questions.length) return;
-      this.currentIndex = index;
-      this.mountCurrentCard();
-      this.updateProgressBar();
-      this.updateButtonStates();
-      this.updateStepDots();
-      this.toggleExtraFields();
-      this.$("#card-slot")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    // ─── State updates ────────────────────────────────────────────────────────
-    updateProgressBar() {
-      const answered = this.surveyService.getAnsweredCount();
-      const total = this.questions.length;
-      const pct = total > 0 ? Math.round(answered / total * 100) : 0;
-      const progressText = this.$("#progress-text");
-      const progressFill = this.$("#progress-fill");
-      const progressSub = this.$("#progress-sub");
-      if (progressText) {
-        progressText.textContent = `Question ${this.currentIndex + 1} of ${total}`;
-      }
-      if (progressFill) {
-        progressFill.style.width = `${pct}%`;
-      }
-      if (progressSub) {
-        progressSub.textContent = `${answered} of ${total} questions fully rated (all ${QGEVAL_METRICS.length} metrics each)`;
-      }
-    }
-    updateButtonStates() {
-      const prevBtn = this.$("#prev-btn");
-      const nextBtn = this.$("#next-btn");
-      const isLast = this.currentIndex === this.questions.length - 1;
-      const isFirst = this.currentIndex === 0;
-      if (prevBtn) prevBtn.disabled = isFirst;
-      if (nextBtn) {
-        if (isLast) {
-          nextBtn.classList.add("opacity-40", "cursor-not-allowed");
-          nextBtn.disabled = true;
-        } else {
-          nextBtn.classList.remove("opacity-40", "cursor-not-allowed");
-          nextBtn.disabled = false;
-        }
-      }
-    }
-    updateStepDots() {
-      this.$$(".step-dot").forEach((dot, i) => {
-        const isFullyRated = this.surveyService.isQuestionFullyAnswered(this.questions[i]?.id);
-        const isCurrent = i === this.currentIndex;
-        dot.className = [
-          "step-dot w-7 h-7 rounded-lg text-[10px] font-bold border-2 transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-lime-400",
-          isCurrent ? "bg-slate-950 border-slate-950 text-white scale-110 shadow" : isFullyRated ? "bg-lime-500 border-lime-600 text-white" : "bg-white border-slate-300 text-slate-500 hover:border-slate-400"
-        ].join(" ");
-      });
-    }
-    updateCardBadge() {
-    }
-    toggleExtraFields() {
-      const extraFields = this.$("#extra-fields");
-      if (!extraFields) return;
-      const isLast = this.currentIndex === this.questions.length - 1;
-      if (isLast) {
-        extraFields.classList.remove("hidden");
-      } else {
-        extraFields.classList.add("hidden");
-      }
-    }
-    // ─── Finish / Submit ──────────────────────────────────────────────────────
-    async handleFinish() {
-      const errorEl = this.$("#form-error");
-      const unanswered = this.questions.filter((q) => !this.surveyService.isQuestionFullyAnswered(q.id));
-      if (unanswered.length > 0) {
-        const q = unanswered[0];
-        const scores = this.surveyService.getScores(q.id);
-        const missingMetrics = QGEVAL_METRICS.filter((m) => scores[m.id] === void 0);
-        const missingLabel = missingMetrics[0]?.label ?? "a metric";
-        const idx = this.questions.indexOf(q);
-        if (idx !== this.currentIndex) this.navigateTo(idx);
-        if (errorEl) {
-          errorEl.textContent = `Please rate "${missingLabel}" for Question ${idx + 1} before finishing.`;
-          errorEl.classList.remove("hidden");
-        }
-        return;
-      }
-      if (errorEl) errorEl.classList.add("hidden");
-      const selectedScores = this.surveyService.getSelectedScores();
-      const answers = Array.from(selectedScores.entries()).map(([questionId, scores]) => ({
-        questionId,
-        scores
-      }));
-      const respondentName = this.$("#respondent-name")?.value.trim();
-      const feedback = this.$("#feedback-text")?.value.trim();
-      const finishBtn = this.$("#finish-btn");
-      const nextBtn = this.$("#next-btn");
-      if (finishBtn) {
-        finishBtn.disabled = true;
-        finishBtn.innerHTML = `
+      </div>`,this.$("#retry-btn")?.addEventListener("click",()=>location.reload())}mountCurrentCard(){let e=this.$("#card-slot");if(!e)return;e.innerHTML="";let t=this.questions[this.currentIndex];if(!t)return;let s=document.createElement("app-question-card");s.id=`qcard-${t.id}`,e.appendChild(s),s.setQuestion(t,this.currentIndex,this.questions.length)}bindNavEvents(){this.$$(".step-dot").forEach(e=>{e.addEventListener("click",()=>{let t=parseInt(e.getAttribute("data-step")||"0",10);this.navigateTo(t)})}),this.$("#prev-btn")?.addEventListener("click",()=>{this.currentIndex>0&&this.navigateTo(this.currentIndex-1)}),this.$("#next-btn")?.addEventListener("click",()=>{this.currentIndex<this.questions.length-1&&this.navigateTo(this.currentIndex+1)}),this.$("#finish-btn")?.addEventListener("click",()=>this.handleFinish())}navigateTo(e){e<0||e>=this.questions.length||(this.currentIndex=e,this.mountCurrentCard(),this.updateProgressBar(),this.updateButtonStates(),this.updateStepDots(),this.toggleExtraFields(),this.$("#card-slot")?.scrollIntoView({behavior:"smooth",block:"start"}))}updateProgressBar(){let e=this.surveyService.getAnsweredCount(),t=this.questions.length,s=t>0?Math.round(e/t*100):0,r=this.$("#progress-text"),i=this.$("#progress-fill"),l=this.$("#progress-sub");r&&(r.textContent=`Question ${this.currentIndex+1} of ${t}`),i&&(i.style.width=`${s}%`),l&&(l.textContent=`${e} of ${t} questions fully rated (all ${b.length} metrics each)`)}updateButtonStates(){let e=this.$("#prev-btn"),t=this.$("#next-btn"),s=this.currentIndex===this.questions.length-1,r=this.currentIndex===0;e&&(e.disabled=r),t&&(s?(t.classList.add("opacity-40","cursor-not-allowed"),t.disabled=!0):(t.classList.remove("opacity-40","cursor-not-allowed"),t.disabled=!1))}updateStepDots(){this.$$(".step-dot").forEach((e,t)=>{let s=this.surveyService.isQuestionFullyAnswered(this.questions[t]?.id),r=t===this.currentIndex;e.className=["step-dot w-7 h-7 rounded-lg text-[10px] font-bold border-2 transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-lime-400",r?"bg-slate-950 border-slate-950 text-white scale-110 shadow":s?"bg-lime-500 border-lime-600 text-white":"bg-white border-slate-300 text-slate-500 hover:border-slate-400"].join(" ")})}updateCardBadge(){}toggleExtraFields(){let e=this.$("#extra-fields");if(!e)return;this.currentIndex===this.questions.length-1?e.classList.remove("hidden"):e.classList.add("hidden")}async handleFinish(){let e=this.$("#form-error"),t=this.questions.filter(h=>!this.surveyService.isQuestionFullyAnswered(h.id));if(t.length>0){let h=t[0],w=this.surveyService.getScores(h.id),x=b.filter(q=>w[q.id]===void 0)[0]?.label??"a metric",m=this.questions.indexOf(h);m!==this.currentIndex&&this.navigateTo(m),e&&(e.textContent=`Please rate "${x}" for Question ${m+1} before finishing.`,e.classList.remove("hidden"));return}e&&e.classList.add("hidden");let s=this.surveyService.getSelectedScores(),r=Array.from(s.entries()).map(([h,w])=>({questionId:h,scores:w})),i=this.$("#respondent-name")?.value.trim(),l=this.$("#feedback-text")?.value.trim(),v=this.$("#finish-btn"),f=this.$("#next-btn");v&&(v.disabled=!0,v.innerHTML=`
         <svg class="animate-spin h-4 w-4 text-lime-600" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
         </svg>
         <span>Submitting\u2026</span>
-      `;
-      }
-      if (nextBtn) nextBtn.disabled = true;
-      try {
-        await this.surveyService.submitSurvey({
-          answers,
-          respondentName: respondentName || void 0,
-          feedback: feedback || void 0
-        });
-        this.surveyService.setView("results");
-      } catch (err) {
-        if (errorEl) {
-          errorEl.textContent = `Submission Error: ${err.message}`;
-          errorEl.classList.remove("hidden");
-        }
-        if (finishBtn) {
-          finishBtn.disabled = false;
-          finishBtn.innerHTML = `
+      `),f&&(f.disabled=!0);try{await this.surveyService.submitSurvey({answers:r,respondentName:i||void 0,feedback:l||void 0}),this.surveyService.setView("results")}catch(h){e&&(e.textContent=`Submission Error: ${h.message}`,e.classList.remove("hidden")),v&&(v.disabled=!1,v.innerHTML=`
           <svg class="w-4 h-4 text-lime-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
           Finish
-        `;
-        }
-        if (nextBtn) nextBtn.disabled = this.currentIndex === this.questions.length - 1;
-      }
-    }
-    escape(str) {
-      return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
-    }
-  };
-  SurveyFormComponent = __decorateClass([
-    Component({
-      selector: "app-survey-form"
-    })
-  ], SurveyFormComponent);
-
-  // src/client/components/results-view/results-view.component.ts
-  var ResultsViewComponent = class extends BaseComponent {
-    surveyService = inject(SurveyService);
-    resultsData = null;
-    isLoading = true;
-    async ngOnInit() {
-      await this.loadData();
-    }
-    async loadData() {
-      this.isLoading = true;
-      this.renderLoading();
-      try {
-        this.resultsData = await this.surveyService.getResults();
-        this.isLoading = false;
-        this.render();
-        this.bindEvents();
-      } catch (err) {
-        this.isLoading = false;
-        this.innerHTML = `
+        `),f&&(f.disabled=this.currentIndex===this.questions.length-1)}}escape(e){return e?e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}};M=d([p({selector:"app-survey-form"})],M);var I=class extends c{surveyService=u(o);resultsData=null;isLoading=!0;async ngOnInit(){await this.loadData()}async loadData(){this.isLoading=!0,this.renderLoading();try{this.resultsData=await this.surveyService.getResults(),this.isLoading=!1,this.render(),this.bindEvents()}catch{this.isLoading=!1,this.innerHTML=`
         <div class="p-6 bg-rose-50 border border-rose-200 rounded-2xl text-center">
           <p class="text-rose-700 font-semibold text-sm">Error loading results</p>
           <button id="res-retry-btn" class="mt-3 px-4 py-2 bg-rose-600 text-white text-xs rounded-xl font-bold">Retry</button>
         </div>
-      `;
-        this.$("#res-retry-btn")?.addEventListener("click", () => this.loadData());
-      }
-    }
-    renderLoading() {
-      this.innerHTML = `
+      `,this.$("#res-retry-btn")?.addEventListener("click",()=>this.loadData())}}renderLoading(){this.innerHTML=`
       <div class="p-10 text-center bg-white rounded-2xl border border-slate-200 shadow-sm animate-pulse">
         <p class="text-slate-500 text-sm font-medium">Aggregating QGEval score analytics\u2026</p>
       </div>
-    `;
-    }
-    render() {
-      if (!this.resultsData) return;
-      const data = this.resultsData;
-      const globalMetricsHtml = data.globalMetricAverages.map((m) => {
-        const pct = Math.round((m.averageScore - 1) / 2 * 100);
-        const colorClass = m.averageScore >= 2.5 ? "bg-lime-500" : m.averageScore >= 1.75 ? "bg-amber-400" : "bg-rose-500";
-        return `
+    `}render(){if(!this.resultsData)return;let e=this.resultsData,t=e.globalMetricAverages.map(i=>{let l=Math.round((i.averageScore-1)/2*100),v=i.averageScore>=2.5?"bg-lime-500":i.averageScore>=1.75?"bg-amber-400":"bg-rose-500";return`
           <div class="flex items-center gap-3 py-2">
             <div class="w-36 shrink-0">
-              <p class="text-xs font-semibold text-slate-800 truncate">${this.escape(m.label)}</p>
-              <p class="text-[10px] text-slate-400">${this.escape(m.labelUk)}</p>
+              <p class="text-xs font-semibold text-slate-800 truncate">${this.escape(i.label)}</p>
+              <p class="text-[10px] text-slate-400">${this.escape(i.labelUk)}</p>
             </div>
             <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div class="${colorClass} h-2 rounded-full transition-all duration-500" style="width: ${pct}%;"></div>
+              <div class="${v} h-2 rounded-full transition-all duration-500" style="width: ${l}%;"></div>
             </div>
-            <span class="text-sm font-bold text-slate-900 w-8 text-right">${m.averageScore.toFixed(2)}</span>
+            <span class="text-sm font-bold text-slate-900 w-8 text-right">${i.averageScore.toFixed(2)}</span>
             <span class="text-xs text-slate-400 font-medium">/3</span>
           </div>
-        `;
-      }).join('<div class="border-t border-slate-100"></div>');
-      const questionCardsHtml = data.questionStats.map((stat) => {
-        const metricsHtml = stat.metrics.map((m) => {
-          const dist = [1, 2, 3].map((s) => {
-            const item = m.distribution.find((d) => d.score === s);
-            return { score: s, count: item?.count ?? 0, pct: item?.percentage ?? 0 };
-          });
-          const barColors = ["bg-rose-400", "bg-amber-400", "bg-lime-500"];
-          const barsHtml = dist.map((d, i) => {
-            const h = Math.max(d.pct, 4);
-            return `
+        `}).join('<div class="border-t border-slate-100"></div>'),s=e.questionStats.map(i=>{let l=i.metrics.map(a=>{let x=[1,2,3].map(g=>{let y=a.distribution.find(C=>C.score===g);return{score:g,count:y?.count??0,pct:y?.percentage??0}}),m=["bg-rose-400","bg-amber-400","bg-lime-500"],q=x.map((g,y)=>{let C=Math.max(g.pct,4);return`
                   <div class="flex-1 flex flex-col items-center gap-0.5 group relative">
                     <div class="w-full bg-slate-100 rounded h-12 flex items-end p-0.5">
-                      <div class="w-full ${barColors[i]} rounded transition-all duration-500" style="height:${h}%;"></div>
+                      <div class="w-full ${m[y]} rounded transition-all duration-500" style="height:${C}%;"></div>
                     </div>
-                    <span class="text-[9px] font-bold text-slate-500">${d.score}</span>
+                    <span class="text-[9px] font-bold text-slate-500">${g.score}</span>
                     <div class="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-900 text-white text-[10px] px-1.5 py-0.5 rounded shadow whitespace-nowrap z-10">
-                      ${d.count} (${d.pct}%)
+                      ${g.count} (${g.pct}%)
                     </div>
                   </div>
-                `;
-          }).join("");
-          const avgColor = m.averageScore >= 2.5 ? "text-lime-600" : m.averageScore >= 1.75 ? "text-amber-600" : "text-rose-500";
-          return `
+                `}).join(""),B=a.averageScore>=2.5?"text-lime-600":a.averageScore>=1.75?"text-amber-600":"text-rose-500";return`
               <div class="py-2.5 px-4 flex items-center gap-3">
                 <div class="w-40 shrink-0">
-                  <p class="text-xs font-semibold text-slate-800">${this.escape(m.label)}</p>
-                  <p class="text-[10px] text-slate-400">${this.escape(m.labelUk)}</p>
+                  <p class="text-xs font-semibold text-slate-800">${this.escape(a.label)}</p>
+                  <p class="text-[10px] text-slate-400">${this.escape(a.labelUk)}</p>
                 </div>
                 <div class="flex gap-1 w-24 shrink-0">
-                  ${barsHtml}
+                  ${q}
                 </div>
                 <div class="ml-auto text-right">
-                  <span class="text-base font-extrabold ${avgColor}">${m.averageScore.toFixed(2)}</span>
+                  <span class="text-base font-extrabold ${B}">${a.averageScore.toFixed(2)}</span>
                   <span class="text-xs text-slate-400 font-medium">/3</span>
                 </div>
               </div>
-            `;
-        });
-        const linguisticMetrics = QGEVAL_METRICS.filter((m) => m.group === "linguistic").map((m) => m.id);
-        const linguisticHtml = stat.metrics.filter((m) => linguisticMetrics.includes(m.metricId)).map((m, i, arr) => metricsHtml[stat.metrics.indexOf(m)] + (i < arr.length - 1 ? '<div class="border-t border-slate-100 mx-4"></div>' : "")).join("");
-        const taskHtml = stat.metrics.filter((m) => !linguisticMetrics.includes(m.metricId)).map((m, i, arr) => metricsHtml[stat.metrics.indexOf(m)] + (i < arr.length - 1 ? '<div class="border-t border-slate-100 mx-4"></div>' : "")).join("");
-        const overallColor = stat.overallAverage >= 2.5 ? "text-lime-600" : stat.overallAverage >= 1.75 ? "text-amber-600" : "text-rose-500";
-        return `
+            `}),v=b.filter(a=>a.group==="linguistic").map(a=>a.id),f=i.metrics.filter(a=>v.includes(a.metricId)).map((a,x,m)=>l[i.metrics.indexOf(a)]+(x<m.length-1?'<div class="border-t border-slate-100 mx-4"></div>':"")).join(""),h=i.metrics.filter(a=>!v.includes(a.metricId)).map((a,x,m)=>l[i.metrics.indexOf(a)]+(x<m.length-1?'<div class="border-t border-slate-100 mx-4"></div>':"")).join(""),w=i.overallAverage>=2.5?"text-lime-600":i.overallAverage>=1.75?"text-amber-600":"text-rose-500";return`
           <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
             <!-- Card header -->
             <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
               <div>
-                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${this.escape(stat.category)}</span>
-                <h4 class="font-bold text-slate-900 text-sm mt-0.5">${this.escape(stat.title)}</h4>
-                <p class="text-xs text-slate-500 mt-0.5">${stat.count} annotation${stat.count !== 1 ? "s" : ""}</p>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${this.escape(i.category)}</span>
+                <h4 class="font-bold text-slate-900 text-sm mt-0.5">${this.escape(i.title)}</h4>
+                <p class="text-xs text-slate-500 mt-0.5">${i.count} annotation${i.count!==1?"s":""}</p>
               </div>
               <div class="text-right shrink-0">
                 <span class="text-[10px] text-slate-400 font-medium">Overall avg</span>
                 <div class="flex items-baseline gap-1 justify-end">
-                  <span class="text-2xl font-extrabold ${overallColor}">${stat.overallAverage.toFixed(2)}</span>
+                  <span class="text-2xl font-extrabold ${w}">${i.overallAverage.toFixed(2)}</span>
                   <span class="text-xs text-slate-400 font-medium">/3</span>
                 </div>
               </div>
@@ -1148,7 +412,7 @@
                 <span class="w-1 h-2.5 bg-slate-400 rounded-full inline-block"></span>
                 Linguistic Dimensions
               </p>
-              <div class="divide-y-0">${linguisticHtml}</div>
+              <div class="divide-y-0">${f}</div>
             </div>
 
             <!-- Task-oriented -->
@@ -1157,26 +421,18 @@
                 <span class="w-1 h-2.5 bg-lime-500 rounded-full inline-block"></span>
                 Task-Oriented Dimensions
               </p>
-              <div class="divide-y-0 pb-2">${taskHtml}</div>
+              <div class="divide-y-0 pb-2">${h}</div>
             </div>
           </div>
-        `;
-      }).join("");
-      let feedbackHtml = '<p class="text-slate-400 text-xs italic">No comments submitted yet.</p>';
-      if (data.recentFeedback && data.recentFeedback.length > 0) {
-        feedbackHtml = data.recentFeedback.map(
-          (item) => `
+        `}).join(""),r='<p class="text-slate-400 text-xs italic">No comments submitted yet.</p>';e.recentFeedback&&e.recentFeedback.length>0&&(r=e.recentFeedback.map(i=>`
           <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs">
-            <p class="text-slate-800 font-medium italic">"${this.escape(item.feedback)}"</p>
+            <p class="text-slate-800 font-medium italic">"${this.escape(i.feedback)}"</p>
             <div class="mt-2 flex items-center justify-between text-slate-400">
-              <span class="font-semibold text-slate-700">${this.escape(item.respondent || "Anonymous")}</span>
-              <span>${this.formatDate(item.timestamp)}</span>
+              <span class="font-semibold text-slate-700">${this.escape(i.respondent||"Anonymous")}</span>
+              <span>${this.formatDate(i.timestamp)}</span>
             </div>
           </div>
-        `
-        ).join("");
-      }
-      this.innerHTML = `
+        `).join("")),this.innerHTML=`
       <div>
         <!-- Thank You Banner -->
         <div class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 text-center shadow-sm mb-8 relative overflow-hidden">
@@ -1207,7 +463,7 @@
           <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
             <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall QGEval Avg</span>
             <div class="flex items-baseline gap-2 mt-2">
-              <span class="text-4xl font-extrabold text-slate-950">${data.overallAverage.toFixed(2)}</span>
+              <span class="text-4xl font-extrabold text-slate-950">${e.overallAverage.toFixed(2)}</span>
               <span class="text-sm font-bold text-slate-400">/ 3</span>
               <span class="ml-auto px-2 py-0.5 rounded-md bg-lime-100 text-lime-800 text-xs font-semibold">Live</span>
             </div>
@@ -1215,14 +471,14 @@
           <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
             <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Submissions</span>
             <div class="flex items-baseline gap-2 mt-2">
-              <span class="text-4xl font-extrabold text-slate-950">${data.totalResponses}</span>
+              <span class="text-4xl font-extrabold text-slate-950">${e.totalResponses}</span>
               <span class="text-xs text-slate-500 font-medium">annotations</span>
             </div>
           </div>
           <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
             <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Metrics Evaluated</span>
             <div class="flex items-baseline gap-2 mt-2">
-              <span class="text-4xl font-extrabold text-slate-950">${QGEVAL_METRICS.length}</span>
+              <span class="text-4xl font-extrabold text-slate-950">${b.length}</span>
               <span class="text-xs text-slate-500 font-medium">QGEval dimensions</span>
             </div>
           </div>
@@ -1241,7 +497,7 @@
           </div>
 
           <div class="divide-y divide-slate-100">
-            ${globalMetricsHtml}
+            ${t}
           </div>
         </div>
 
@@ -1253,7 +509,7 @@
           </h3>
           <p class="text-xs text-slate-400 mb-4">Distribution bars show annotator score distributions (1=rose, 2=amber, 3=lime)</p>
           <div class="space-y-4">
-            ${questionCardsHtml}
+            ${s}
           </div>
         </div>
 
@@ -1263,64 +519,11 @@
             Annotator Comments
           </h3>
           <div class="space-y-3">
-            ${feedbackHtml}
+            ${r}
           </div>
         </div>
       </div>
-    `;
-    }
-    bindEvents() {
-      this.$("#res-retake-btn")?.addEventListener("click", () => {
-        this.surveyService.resetScores();
-        this.surveyService.setView("survey");
-      });
-      this.$("#res-refresh-btn")?.addEventListener("click", () => this.loadData());
-    }
-    escape(str) {
-      return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
-    }
-    formatDate(isoStr) {
-      if (!isoStr) return "";
-      try {
-        return new Date(isoStr).toLocaleDateString(void 0, {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-      } catch {
-        return "";
-      }
-    }
-  };
-  ResultsViewComponent = __decorateClass([
-    Component({
-      selector: "app-results-view"
-    })
-  ], ResultsViewComponent);
-
-  // src/client/components/app.component.ts
-  var AppComponent = class extends BaseComponent {
-    surveyService = inject(SurveyService);
-    currentView = "survey";
-    unsubscribeView;
-    ngOnInit() {
-      this.currentView = this.surveyService.getView();
-      this.unsubscribeView = this.surveyService.onViewChange((view) => {
-        this.currentView = view;
-        this.renderView();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
-      this.renderView();
-    }
-    ngOnDestroy() {
-      if (this.unsubscribeView) {
-        this.unsubscribeView();
-      }
-    }
-    render() {
-      this.className = "min-h-screen flex flex-col font-sans bg-[#fafafa] text-slate-900 selection:bg-lime-300 selection:text-black";
-      this.innerHTML = `
+    `}bindEvents(){this.$("#res-retake-btn")?.addEventListener("click",()=>{this.surveyService.resetScores(),this.surveyService.setView("survey")}),this.$("#res-refresh-btn")?.addEventListener("click",()=>this.loadData())}escape(e){return e?e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}formatDate(e){if(!e)return"";try{return new Date(e).toLocaleDateString(void 0,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return""}}};I=d([p({selector:"app-results-view"})],I);var E=class extends c{surveyService=u(o);currentView="survey";unsubscribeView;ngOnInit(){this.currentView=this.surveyService.getView(),this.unsubscribeView=this.surveyService.onViewChange(e=>{this.currentView=e,this.renderView(),window.scrollTo({top:0,behavior:"smooth"})}),this.renderView()}ngOnDestroy(){this.unsubscribeView&&this.unsubscribeView()}render(){this.className="min-h-screen flex flex-col font-sans bg-[#fafafa] text-slate-900 selection:bg-lime-300 selection:text-black",this.innerHTML=`
       <!-- Angular-style Header Component -->
       <app-header></app-header>
 
@@ -1343,25 +546,5 @@
           </div>
         </div>
       </footer>
-    `;
-    }
-    renderView() {
-      const outlet = this.$("#view-outlet");
-      if (!outlet) return;
-      if (this.currentView === "survey") {
-        outlet.innerHTML = `<app-survey-form></app-survey-form>`;
-      } else {
-        outlet.innerHTML = `<app-results-view></app-results-view>`;
-      }
-    }
-  };
-  AppComponent = __decorateClass([
-    Component({
-      selector: "app-root"
-    })
-  ], AppComponent);
-
-  // src/client/main.ts
-  console.log("[RatePulse] Angular-style components initialized successfully.");
-})();
+    `}renderView(){let e=this.$("#view-outlet");e&&(this.currentView==="survey"?e.innerHTML="<app-survey-form></app-survey-form>":e.innerHTML="<app-results-view></app-results-view>")}};E=d([p({selector:"app-root"})],E);console.log("[RatePulse] Angular-style components initialized successfully.");})();
 //# sourceMappingURL=app.js.map
