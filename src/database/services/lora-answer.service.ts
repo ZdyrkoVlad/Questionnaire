@@ -58,9 +58,24 @@ export class LoraAnswerService {
 
   /** Find saved answers by questionId */
   async findByQuestionId(questionId: string | number): Promise<LoraAnswerResult[]> {
+    const num = typeof questionId === 'number' ? questionId : parseInt(String(questionId), 10);
+    const filter = !isNaN(num)
+      ? { $or: [{ questionId }, { questionId: num }, { questionId: String(num) }] }
+      : { questionId };
     const results = await this.model
-      .find({ questionId })
+      .find(filter)
       .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+    return results as unknown as LoraAnswerResult[];
+  }
+
+  /** Find most recent answers */
+  async findRecent(limit = 10): Promise<LoraAnswerResult[]> {
+    const results = await this.model
+      .find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
       .lean()
       .exec();
     return results as unknown as LoraAnswerResult[];

@@ -40,10 +40,24 @@ export interface MetricStat {
 export interface QuestionStat {
   questionId: string;
   title: string;
+  questionText?: string;
+  targetAnswer?: string;
   category: string;
   count: number;
   overallAverage: number;
   metrics: MetricStat[];
+}
+
+export interface RecentAnswer {
+  id?: string | number;
+  questionId: string | number;
+  question: string;
+  answer: string;
+  imgUrl?: string;
+  score: Record<string, number>;
+  respondentName?: string;
+  feedback?: string;
+  createdAt?: string;
 }
 
 export interface GlobalMetricAverage {
@@ -245,7 +259,20 @@ export class SurveyService {
           ? parseFloat((allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2))
           : 0;
 
-      return { questionId: qId, title: `Question #${qId}`, category: 'LORA VQA', count, overallAverage, metrics };
+      const sampleAnswer = answersForQ[0];
+      const questionText = sampleAnswer?.question || `Question #${qId}`;
+      const targetAnswer = sampleAnswer?.answer || '';
+
+      return {
+        questionId: qId,
+        title: `Question #${qId}`,
+        questionText,
+        targetAnswer,
+        category: 'LORA VQA',
+        count,
+        overallAverage,
+        metrics,
+      };
     });
 
     const globalMetricAverages: GlobalMetricAverage[] = QGEVAL_METRICS.map((metric) => {
@@ -259,6 +286,28 @@ export class SurveyService {
       return { metricId: metric.id, label: metric.label, labelUk: metric.labelUk, averageScore: avg };
     });
 
+    const overallAverage =
+      globalMetricAverages.length > 0
+        ? parseFloat(
+            (
+              globalMetricAverages.reduce((acc, m) => acc + m.averageScore, 0) /
+              globalMetricAverages.length
+            ).toFixed(2),
+          )
+        : 0;
+
+    const recentAnswers: RecentAnswer[] = dbAnswers.slice(0, 10).map((a) => ({
+      id: a.id,
+      questionId: a.questionId,
+      question: a.question,
+      answer: a.answer,
+      imgUrl: a.imgUrl,
+      score: a.score,
+      respondentName: a.respondentName ?? 'Anonymous',
+      feedback: a.feedback,
+      createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : undefined,
+    }));
+
     const recentFeedback = dbAnswers
       .filter((a) => a.feedback && a.feedback.length > 0)
       .slice(-5)
@@ -269,6 +318,21 @@ export class SurveyService {
         timestamp: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
       }));
 
-    return { version: APP_VERSION, totalResponses, overallAverage: 0, globalMetricAverages, questionStats, recentFeedback };
+    return {
+      version: APP_VERSION,
+      totalResponses,
+      overallAverage,
+      globalMetricAverages,
+      questionStats,
+      recentAnswers,
+      recentFeedback,
+    };
+  }
+
+  /**
+   * Returns all submitted answers for a specific question.
+   */
+  async getAnswersByQuestionId(questionId: string | number): Promise<LoraAnswerResult[]> {
+    return this.loraAnswerService.findByQuestionId(questionId);
   }
 }

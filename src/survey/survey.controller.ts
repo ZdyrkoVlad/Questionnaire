@@ -75,4 +75,12 @@ export class SurveyController {
   getResults() {
     return this.surveyService.getResults();
   }
+
+  /**
+   * Returns all submitted answers for a specific question.
+   */
+  @Get('questions/:id/answers')
+  getQuestionAnswers(@Param('id') id: string) {
+    return this.surveyService.getAnswersByQuestionId(id);
+  }
 }

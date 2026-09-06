@@ -55,10 +55,38 @@ export interface MetricStat {
 export interface QuestionStat {
   questionId: string;
   title: string;
+  questionText?: string;
+  targetAnswer?: string;
   category: string;
   count: number;
   overallAverage: number;
   metrics: MetricStat[];
+}
+
+export interface RecentAnswer {
+  id?: string | number;
+  questionId: string | number;
+  question: string;
+  answer: string;
+  imgUrl?: string;
+  score: Record<string, number>;
+  respondentName?: string;
+  feedback?: string;
+  createdAt?: string;
+}
+
+export interface QuestionAnswerItem {
+  _id?: string;
+  id?: string | number;
+  questionId: string | number;
+  question: string;
+  answer: string;
+  imgUrl?: string;
+  score: Record<string, number>;
+  respondentName?: string;
+  feedback?: string;
+  version?: string;
+  createdAt?: string;
 }
 
 export interface GlobalMetricAverage {
@@ -82,6 +110,7 @@ export interface SurveyResults {
   overallAverage: number;
   globalMetricAverages: GlobalMetricAverage[];
   questionStats: QuestionStat[];
+  recentAnswers?: RecentAnswer[];
   recentFeedback: RecentFeedback[];
 }
 
@@ -134,6 +163,18 @@ export class SurveyService {
     const q: Question = await res.json();
     this.questions = [q];
     return q;
+  }
+
+  async getQuestionDetails(index: number): Promise<Question | null> {
+    try {
+      const res = await fetch(`/api/survey/questions/${index}`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn(`Could not fetch question details for #${index}:`, e);
+    }
+    return null;
   }
 
   async getQuestions(): Promise<Question[]> {
@@ -214,6 +255,14 @@ export class SurveyService {
     }
     this.cachedResults = await res.json();
     return this.cachedResults;
+  }
+
+  async getAnswersForQuestion(questionId: string | number): Promise<QuestionAnswerItem[]> {
+    const res = await fetch(`/api/survey/questions/${questionId}/answers`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch answers for question #${questionId}: ${res.statusText}`);
+    }
+    return res.json();
   }
 
   setView(view: ActiveView): void {

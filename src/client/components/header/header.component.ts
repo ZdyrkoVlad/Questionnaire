@@ -33,7 +33,7 @@ export class HeaderComponent extends BaseComponent {
             </div>
             <div class="flex items-center gap-2">
               <span class="font-bold text-slate-950 tracking-tight text-base">RatePulse</span>
-              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">v1.0.0</span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">v1.4.8</span>
             </div>
           </div>
 
