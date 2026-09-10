@@ -10,6 +10,7 @@ export class SurveyFormComponent extends BaseComponent {
   private surveyService = inject(SurveyService);
   private questions: Question[] = [];
   private totalQuestionsInDb = 1;
+  private maxSelectableIndex = 1;
   private currentQuestionId = 1;
   private isLoading = true;
   private isFetchingQuestion = false;
@@ -25,13 +26,25 @@ export class SurveyFormComponent extends BaseComponent {
 
     try {
       // Fetch total count and initial question
-      this.totalQuestionsInDb = await this.surveyService.getTotalQuestionsCount();
+      const totalFromDb = await this.surveyService.getTotalQuestionsCount();
+      this.totalQuestionsInDb = totalFromDb > 0 ? totalFromDb : 1;
+      this.maxSelectableIndex = Math.min(1000, this.totalQuestionsInDb);
       this.questions = await this.surveyService.getQuestions();
 
       if (this.questions.length > 0) {
         const first = this.questions[0];
         const rawId = first.numericId !== undefined ? first.numericId : parseInt(first.id, 10);
-        this.currentQuestionId = !isNaN(rawId) && rawId > 0 ? rawId : 1;
+        let id = !isNaN(rawId) && rawId > 0 ? rawId : 1;
+        if (id > this.maxSelectableIndex) {
+          try {
+            const clampedQ = await this.surveyService.fetchQuestionByIndex(1);
+            this.questions = [clampedQ];
+            id = 1;
+          } catch {
+            id = Math.min(id, this.maxSelectableIndex);
+          }
+        }
+        this.currentQuestionId = id;
       }
 
       this.isLoading = false;
@@ -92,7 +105,7 @@ export class SurveyFormComponent extends BaseComponent {
                 Номер / Індекс запитання в базі даних
               </label>
               <p class="text-xs text-slate-500 mt-0.5">
-                Введіть індекс від <span class="font-bold text-slate-900">1</span> до <span id="max-questions-count" class="font-bold text-slate-900">${this.totalQuestionsInDb}</span> для завантаження з MongoDB
+                Введіть індекс від <span class="font-bold text-slate-900">1</span> до <span id="max-questions-count" class="font-bold text-slate-900">${this.maxSelectableIndex}</span> для завантаження з MongoDB
               </p>
             </div>
             
@@ -110,7 +123,7 @@ export class SurveyFormComponent extends BaseComponent {
                 type="number"
                 id="question-index-input"
                 min="1"
-                max="${this.totalQuestionsInDb}"
+                max="${this.maxSelectableIndex}"
                 value="${this.currentQuestionId}"
                 class="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-900 text-sm focus:bg-white focus:border-slate-400 transition-colors"
                 placeholder="Введіть індекс..."
@@ -256,7 +269,7 @@ export class SurveyFormComponent extends BaseComponent {
     const card = document.createElement('app-question-card') as QuestionCardComponent;
     card.id = `qcard-${q.id}`;
     slot.appendChild(card);
-    card.setQuestion(q, this.currentQuestionId - 1, this.totalQuestionsInDb);
+    card.setQuestion(q, this.currentQuestionId - 1, this.maxSelectableIndex);
   }
 
   // ─── Event bindings ───────────────────────────────────────────────────────
@@ -301,7 +314,7 @@ export class SurveyFormComponent extends BaseComponent {
     });
 
     randomBtn?.addEventListener('click', () => {
-      const max = Math.max(1, this.totalQuestionsInDb);
+      const max = Math.max(1, this.maxSelectableIndex);
       const randomId = Math.floor(Math.random() * max) + 1;
       this.loadQuestionById(randomId);
     });
@@ -336,8 +349,8 @@ export class SurveyFormComponent extends BaseComponent {
       return;
     }
 
-    if (this.totalQuestionsInDb > 0 && index > this.totalQuestionsInDb) {
-      this.showIndexError(`Індекс ${index} перевищує загальну кількість запитань у БД (${this.totalQuestionsInDb})`);
+    if (this.maxSelectableIndex > 0 && index > this.maxSelectableIndex) {
+      this.showIndexError(`Індекс ${index} перевищує максимальну допустиму границю (${this.maxSelectableIndex})`);
       return;
     }
 
@@ -420,7 +433,7 @@ export class SurveyFormComponent extends BaseComponent {
     const finishBtn = this.$<HTMLButtonElement>('#finish-btn');
 
     const isFirst = this.currentQuestionId <= 1;
-    const isLast = this.totalQuestionsInDb > 0 && this.currentQuestionId >= this.totalQuestionsInDb;
+    const isLast = this.maxSelectableIndex > 0 && this.currentQuestionId >= this.maxSelectableIndex;
 
     if (prevBtn) {
       prevBtn.disabled = isFirst;
@@ -538,7 +551,7 @@ export class SurveyFormComponent extends BaseComponent {
         this.autoAdvanceTimer = undefined;
         this.isSubmitting = false;
 
-        if (this.currentQuestionId < this.totalQuestionsInDb) {
+        if (this.currentQuestionId < this.maxSelectableIndex) {
           await this.loadQuestionById(this.currentQuestionId + 1);
         } else {
           this.surveyService.setView('results');

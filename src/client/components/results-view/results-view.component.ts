@@ -43,7 +43,7 @@ export class ResultsViewComponent extends BaseComponent {
       ]);
 
       this.resultsData = results;
-      this.totalQuestionsCount = Math.max(totalCount || 1, 1);
+      this.totalQuestionsCount = Math.min(1000, Math.max(totalCount || 1, 1));
       this.isLoading = false;
 
       // Populate question info cache from question stats if available
