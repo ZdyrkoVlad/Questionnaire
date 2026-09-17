@@ -75,7 +75,7 @@ export class QGEvalMetricRowComponent extends BaseComponent {
       <div class="flex items-center gap-3 py-2.5">
         <!-- Label column -->
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5 flex-wrap">
+          <div class="flex items-center gap-1.5 flex-wrap overflow-visible">
             <span class="text-sm font-semibold text-slate-800">${this.escape(this.label)}</span>
             <span class="text-sm text-slate-500 font-normal">(${this.escape(this.labelUk)})</span>
             <!-- Info tooltip -->
@@ -83,7 +83,7 @@ export class QGEvalMetricRowComponent extends BaseComponent {
               <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
-              <span class="pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 rounded-lg bg-slate-900 text-white text-[11px] leading-relaxed px-2.5 py-2 shadow-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-150 z-50">
+              <span class="pointer-events-none absolute top-full left-0 mt-1.5 w-64 rounded-lg bg-slate-900 text-white text-[11px] leading-relaxed px-2.5 py-2 shadow-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-150 z-50">
                 ${this.escape(this.description)}
               </span>
             </span>

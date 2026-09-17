@@ -46,7 +46,7 @@ export class QuestionCardComponent extends BaseComponent {
 
     this.className = 'block';
     this.innerHTML = `
-      <div id="card-${q.id}" class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all">
+      <div id="card-${q.id}" class="bg-white border border-slate-200 rounded-2xl shadow-sm transition-all">
 
         <!-- Card Header -->
         <div class="px-6 pt-6 pb-4 border-b border-slate-100">
@@ -136,7 +136,7 @@ export class QuestionCardComponent extends BaseComponent {
               <span class="w-1 h-3 bg-slate-400 rounded-full inline-block"></span>
               Linguistic Dimensions
             </p>
-            <div id="linguistic-rows-${q.id}" class="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden bg-white"></div>
+            <div id="linguistic-rows-${q.id}" class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white"></div>
           </div>
 
           <!-- Task-oriented dimensions group -->
@@ -145,7 +145,7 @@ export class QuestionCardComponent extends BaseComponent {
               <span class="w-1 h-3 bg-lime-500 rounded-full inline-block"></span>
               Task-Oriented Dimensions
             </p>
-            <div id="task-rows-${q.id}" class="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden bg-white"></div>
+            <div id="task-rows-${q.id}" class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white"></div>
           </div>
 
         </div>
