@@ -13,6 +13,7 @@ export interface CreateLoraAnswerInput {
   respondentName?: string;
   feedback?: string;
   version?: string;
+  anonymousId?: string;
 }
 
 export interface LoraAnswerResult {
@@ -26,6 +27,7 @@ export interface LoraAnswerResult {
   respondentName?: string;
   feedback?: string;
   version?: string;
+  anonymousId?: string;
   createdAt?: Date;
 }
 

@@ -70,4 +70,8 @@ export class SubmitSurveyDto {
   @IsOptional()
   @IsString()
   respondentName?: string;
+
+  @IsOptional()
+  @IsString()
+  anonymousId?: string;
 }

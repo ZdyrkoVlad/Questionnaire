@@ -530,8 +530,10 @@ export class SurveyFormComponent extends BaseComponent {
     }
 
     try {
+      const anonId = this.surveyService.getAnonymousId();
       await this.surveyService.submitSurvey({
         answers: [{ questionId: currentQ.id, scores }],
+        ...(anonId ? { anonymousId: anonId } : {}),
       });
 
       if (finishBtn) {

@@ -45,4 +45,8 @@ export class SaveLoraAnswerDto {
   @IsOptional()
   @IsString()
   version?: string;
+
+  @IsOptional()
+  @IsString()
+  anonymousId?: string;
 }

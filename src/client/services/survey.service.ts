@@ -119,6 +119,7 @@ export interface SubmitPayload {
   answers: { questionId: string; scores: QGEvalScores }[];
   respondentName?: string;
   feedback?: string;
+  anonymousId?: string;
 }
 
 export type ActiveView = 'survey' | 'results';
@@ -138,6 +139,21 @@ export class SurveyService {
   private scoreListeners = new Set<(scores: Map<string, QGEvalScores>) => void>();
 
   private totalCount = 1;
+
+  private static readonly ANON_ID_KEY = 'questionnaire_anonymous_id';
+
+  getAnonymousId(): string {
+    return localStorage.getItem(SurveyService.ANON_ID_KEY) || '';
+  }
+
+  setAnonymousId(id: string): void {
+    const trimmed = id.trim();
+    if (trimmed) {
+      localStorage.setItem(SurveyService.ANON_ID_KEY, trimmed);
+    } else {
+      localStorage.removeItem(SurveyService.ANON_ID_KEY);
+    }
+  }
 
   async getTotalQuestionsCount(): Promise<number> {
     try {

@@ -50,13 +50,28 @@ export class QuestionCardComponent extends BaseComponent {
 
         <!-- Card Header -->
         <div class="px-6 pt-6 pb-4 border-b border-slate-100">
-          <div class="flex items-start justify-between gap-3 mb-3">
+          <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider shrink-0">
               Q${this.index + 1} / ${this.total} &nbsp;·&nbsp; ${this.escape(q.category)}
             </span>
-            <span id="badge-${q.id}" class="text-xs font-semibold shrink-0">
-              ${this.badgeHtml(ratedCount)}
-            </span>
+
+            <div class="flex items-center gap-2 ml-auto shrink-0">
+              <!-- Anonymous ID input -->
+              <div class="flex items-center gap-1.5">
+                <label for="anon-id-input-${q.id}" class="text-[10px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">ID:</label>
+                <input
+                  type="text"
+                  id="anon-id-input-${q.id}"
+                  value="${this.escape(this.surveyService.getAnonymousId())}"
+                  placeholder="Anonymous"
+                  class="w-28 px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:bg-white focus:border-slate-400 transition-colors"
+                />
+              </div>
+
+              <span id="badge-${q.id}" class="text-xs font-semibold shrink-0">
+                ${this.badgeHtml(ratedCount)}
+              </span>
+            </div>
           </div>
 
           <!-- Image Context Block (Full Content Width) -->
@@ -175,6 +190,26 @@ export class QuestionCardComponent extends BaseComponent {
         labelUk: metric.labelUk,
         description: metric.description,
       });
+    });
+
+    this.bindAnonIdInput();
+  }
+
+  private bindAnonIdInput(): void {
+    if (!this.questionData) return;
+    const input = this.$<HTMLInputElement>(`#anon-id-input-${this.questionData.id}`);
+    if (!input) return;
+
+    const save = () => {
+      this.surveyService.setAnonymousId(input.value);
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        save();
+        input.blur();
+      }
     });
   }
 

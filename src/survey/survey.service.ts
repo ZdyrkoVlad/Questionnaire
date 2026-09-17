@@ -167,6 +167,7 @@ export class SurveyService {
       respondentName: dto.respondentName,
       feedback: dto.feedback,
       version: dto.version || APP_VERSION,
+      anonymousId: dto.anonymousId,
     });
     return result;
   }
@@ -204,6 +205,7 @@ export class SurveyService {
         respondentName: dto.respondentName?.trim() || 'Anonymous',
         feedback: dto.feedback?.trim(),
         version: APP_VERSION,
+        anonymousId: dto.anonymousId?.trim() || undefined,
       });
       savedCount++;
     }

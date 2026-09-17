@@ -47,6 +47,9 @@ export class LoraAnswer {
   @Prop({ type: String, required: false, default: '1.0.0' })
   version?: string;
 
+  @Prop({ type: String, required: false, default: null })
+  anonymousId?: string;
+
   createdAt?: Date;
 }
 
